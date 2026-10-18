@@ -1,0 +1,22 @@
+[plugins]
+android-application = { version = "7.6.2", id = "com.android.tools.build:android-gradle-plugin" }
+kotlin-android = { version = "1.9.21", id = "org.jetbrains.kotlin:kotlin-android" }
+kotlin-compose = { version = "1.5.1", id = "org.jetbrains.kotlin:kotlin-compose" }
+kotlin-serialization = { version = "1.6.2", id = "org.jetbrains.kotlin:kotlin-serialization" }
+
+[libraries]
+androidx-compose-bom = { version = "2024.03.03", id = "com.google.android:androidx-compose-bom" }
+androidx-compose-activity = { version = "2024.03.03", id = "com.google.android:androidx-compose-activity" }
+androidx-compose-lifecycle = { version = "2024.03.03", id = "com.google.android:androidx-compose-lifecycle" }
+androidx-compose-material3 = { version = "2024.03.03", id = "com.google.android:androidx-compose-material3" }
+retrofit = { version = "2.9.0", id = "com.squareup.retrofit2:retrofit" }
+retrofit-serialization = { version = "2.9.0", id = "com.squareup.retrofit2:retrofit-kotlinx-serialization-converter" }
+okhttp = { version = "4.12.0", id = "com.squareup.okhttp3:okhttp" }
+MPAndroidChart = { version = "3.1.0", maven = "https://jitpack.io" }
+
+[versions]
+android = "7.6.2"
+kotlin = "1.9.21"
+compose = "2024.03.03"
+retrofit = "2.9.0"
+okhttp = "4.12.0"
