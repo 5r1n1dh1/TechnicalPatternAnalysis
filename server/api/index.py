@@ -8,6 +8,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from api.errors import ApiError, ErrorResponse
+import resample
+import search
+import candles
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
@@ -48,6 +51,8 @@ def create_app() -> FastAPI:
     # Mount routers
     app.include_router(search.router, prefix="/api")
     app.include_router(candles.router, prefix="/api")
+    from resample import router as resample_router
+    app.include_router(resample_router, prefix="/api")
 
     return app
 
