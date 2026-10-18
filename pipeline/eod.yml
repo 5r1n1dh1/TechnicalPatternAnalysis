@@ -1,0 +1,60 @@
+name: EOD Pipeline
+
+on:
+  schedule:
+    - cron: '30 13 * * 1-5'  # 19:00 IST Mon-Fri
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipeline/requirements.txt
+
+      - name: Holiday guard
+        run: |
+          python pipeline/eod.py validate_date ${{ github.run_date }}
+
+      - name: Run pipeline
+        run: |
+          python pipeline/eod.py run
+
+      - name: Sanity check
+        run: |
+          python -m pytest pipeline/tests/test_eod.py -q
+
+      - name: Commit changes
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git add pipeline/
+          git commit -m "EOD pipeline run ${{ github.run_date }}" -q
+          git push -q
+
+      - name: Deploy to Vercel
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_API_KEY
+          vercel deploy --prod --prebuilt --token=$VERCEL_API_KEY --cwd pipeline
+
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    on:
+      schedule: null
+    steps:
+      - name: Setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipeline/requirements.txt
+
+      - name: Run backfill
+        run: |
+          python pipeline/backfill.py

@@ -44,6 +44,10 @@ def create_app() -> FastAPI:
     @app.get("/api/health", response_model=dict)
     async def health() -> dict:
         return {"status": "ok", "dataAsOf": _data_as_of()}
+    
+    # Mount routers
+    app.include_router(search.router, prefix="/api")
+    app.include_router(candles.router, prefix="/api")
 
     return app
 
