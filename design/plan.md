@@ -1,219 +1,355 @@
-# Technical Pattern Analysis — Plan
+# Technical Pattern Analysis — Detailed Plan
 
-Android app (glassmorphism) + Python backend on Vercel for Indian stock market (NSE/BSE) chart pattern analysis.
+Android app (glassmorphism) + Python backend (Vercel) + daily EOD ML pipeline (GitHub Actions + Kaggle) for Indian stock market (NSE), Nifty 500 universe.
 
-## 1. Scope (from requirements)
+## 1. Product decisions (locked from interviews)
 
-| # | Requirement |
+| Decision | Choice |
 |---|---|
-| R1 | Search bar is the main element; search reveals similar symbols/stocks |
-| R2 | Selecting a symbol loads its data from every free/open data source useful for charting |
-| R3 | Chart page with pattern dropdown: Head & Shoulders (+inverse), Cup & Handle, Double/Triple Top/Bottom, Bull/Bear Flag |
-| R4 | Time range dropdown |
-| R5 | Interval dropdown (5m, 15m, 30m, 1h, 1d, …) |
-| R6 | Selected pattern is plotted (overlaid) on the price chart |
-| R7 | Show current trend |
-| R8 | ML model predicts trend for next 1d / 2d / 1w with probabilities |
+| Data freshness | **EOD only.** No live quotes, no auto-refresh. One daily pipeline run after market close. |
+| Pipeline runner | **GitHub Actions** daily cron (Kaggle = storage only, plus optional heavy-compute overflow) |
+| ML predictions | **Daily batch precompute** for all Nifty 500 symbols; app reads results, never trains |
+| Storage | **Kaggle Datasets** for EOD history + model artifacts; small daily JSONs committed to repo |
+| Fundamentals tab | **Full financials** (ratios + statements + corporate actions; shareholding best-effort) |
+| Technicals tab | **Indicators + S/R levels** + candlestick summary |
+| Symbol universe | **Nifty 500** (constituent list refreshed monthly by pipeline) |
+| Chart intervals | **Keep intraday** (5m/15m/30m/1h, Yahoo delayed, 60d cap) **plus** 1d/1w/1M |
+| ML output | **3-class**: UP / DOWN / SIDEWAYS (±0.5% band), probabilities per horizon 1d/2d/1w |
+| App structure | Search home → symbol screen with **3 tabs: Fundamentals, Technicals, Charts & Patterns** |
 
-## 2. Research findings
+## 2. Architecture overview
 
-### 2.1 Free/open data sources (Indian market)
+```mermaid
+flowchart LR
+    subgraph Daily["Daily EOD pipeline — GitHub Actions (19:30 IST Mon-Fri)"]
+        P1[Fetch Nifty 500 list] --> P2[Fetch bhavcopy + Yahoo EOD bars]
+        P2 --> P3[Append to Kaggle history dataset]
+        P3 --> P4[Train 3 models + walk-forward eval]
+        P4 --> P5[Precompute predictions.json all symbols]
+        P2 --> P6[Pattern scan all symbols -> scan.json]
+        P5 --> P7[Commit predictions.json + scan.json -> push]
+        P6 --> P7
+        P4 --> P8[Push model artifacts to Kaggle]
+    end
+    P7 --> V["Vercel Python server (deploy on push)"]
+    A["Android app"] -->|REST| V
+    V -->|on-demand candles| Y["Yahoo (yfinance)"]
+    P7 --> O["APK build + GitHub Release (weekly)"]
+```
 
-| Source | Data | Limits / notes |
-|---|---|---|
-| **yfinance** (Yahoo) | Intraday + daily OHLCV for `SYMBOL.NS` / `SYMBOL.BO` | Primary. Intraday caps: 1m ~7d, 2m/5m/15m/30m ~60d, 1h ~730d, 1d unlimited (10+ yrs). No API key. Auto-adjusted prices available (splits/dividends) |
-| **NSE bhavcopy** (official CSV) | EOD OHLCV for all NSE equities | Free, reliable, but EOD only; endpoints need cookie handling |
-| **nsefeed / nselib / jugaad-data** (open source) | NSE historical CSVs, bhavcopy, deliverables | Useful as EOD fallback; index OHLC endpoints deprecated by NSE |
-| **Upstox / Zerodha Kite APIs** | Live + 60-day intraday candles | Free but need user account + auth — out of scope for v1 |
+**Data flow principles**
+- Heavy work (history accumulation, training, batch scan) happens **once daily in CI**, not on Vercel.
+- Vercel functions stay cold-start fast: they read small baked-in JSONs, fetch candles on demand from Yahoo, compute patterns/indicators on demand (cheap), and never call Kaggle in the hot path.
+- The app is a read-only EOD viewer: everything it shows is either baked into the daily commit or computed from EOD candles.
 
-**Decision:** yfinance as primary source, NSE bhavcopy as EOD fallback. "Every free source" is impractical (paid feeds excluded, broker APIs need auth); the fallback chain covers realistic free availability.
-
-**Symbol search:** Yahoo has no official search API. Ship a bundled snapshot of the NSE equity symbol universe (symbol + company name, ~2,000 entries, refreshed daily by a CI cron job committing an updated JSON). Search = local fuzzy match server-side (fast, no external dependency, works during Yahoo outages).
-
-### 2.2 Pattern detection libraries
-
-- TA-Lib / pandas-ta-classic: **candlestick patterns only** — none of the 5 requested chart patterns.
-- `ta-patterns` (PyPI): 194 chart patterns incl. some classics, but coverage of the exact 5 requested patterns is partial and geometry rules are not tunable.
-
-**Decision:** custom lightweight pivot-based detector in `server/` (scipy `find_peaks` on smoothed close + rule-based geometry). ~200 lines, no heavy dependency, full control of pattern anchors returned for chart overlay. TA-Lib C dependency is a cold-start/bundle risk on Vercel — avoid it entirely.
-
-### 2.3 Vercel constraints (Python serverless, Hobby)
-
-- Max duration 300s, memory 2 GB, bundle ≤ 500 MB, no persistent disk.
-- **Training an ML model per request is feasible only if lightweight.** A per-symbol scikit-learn logistic regression on a few hundred daily bars trains in <2s. Deep learning / large ensembles are not viable — excluded.
-
-## 3. Gap analysis (requirements vs reality)
-
-| Gap | Risk | Resolution |
-|---|---|---|
-| Intraday history depth | 5m/15m/30m only last ~60 days; 1m ~7 days | Validate interval×range combos server-side; UI disables invalid combos (matrix in §6) |
-| "Train an ML model" is ambiguous | Overengineering risk | Per-symbol logistic regression trained on request from the symbol's own daily history, cached. Calibrated probabilities via `predict_proba`. Simple, fast, honest |
-| ML on short intraday data | Too few samples → unreliable | Train/predict on daily bars only; intraday selection affects chart, not the model |
-| Pattern detection false positives | Wrong signals drawn | Volume + neckline-break confirmation, minimum pattern size, confidence score shown in UI |
-| Lookahead bias in ML | Inflated accuracy | Strict walk-forward features (indicators at t predict t+1/2/5 sessions) |
-| NSE anti-bot / endpoint churn | Backend breakage | yfinance primary; bhavcopy fallback; in-memory TTL cache per warm instance |
-| Timezone confusion | Charts shifted | All timestamps IST (Asia/Kolkata); session filter 09:15–15:30 IST; NSE holiday calendar bundled |
-| Corporate actions create fake gaps | False patterns | Use auto-adjusted OHLC from yfinance |
-| Serverless is stateless | Re-training every request is wasteful | Cache model artifacts + predictions per (symbol) with TTL until next trading day; HTTP `Cache-Control` |
-| No disclaimer | Legal | "Educational use only, not investment advice" on app footer |
-
-## 4. Enhancements (added to scope)
-
-1. Pattern confidence score + trend direction label on every detection.
-2. Trend composite: EMA(20/50) slope + ADX strength + price position → **Uptrend / Downtrend / Sideways** with strength bar.
-3. Auto "Detected patterns" summary chips above chart (all 5 patterns scanned, tap to overlay).
-4. Volume sub-chart (confirmation for patterns).
-5. Watchlist (local, no account).
-6. Recent searches.
-7. RSI toggle overlay (optional, cheap since indicators already computed).
-
-Deliberately excluded (overengineering for v1): live streaming quotes, broker login, options chain, push alerts, custom pattern drawing.
-
-## 5. Architecture
+## 3. Repository structure
 
 ```
 technicalPatternAnalysis/
-├── android/          # Kotlin + Jetpack Compose app
-├── server/           # Python (FastAPI), deployed on Vercel
-│   ├── api/          # /api/search, /api/candles, /api/patterns, /api/trend, /api/predict
-│   ├── core/         # data fetch, pattern detector, trend, ml
-│   └── data/         # symbols.json snapshot (CI-refreshed)
-├── design/           # this plan + diagrams
-└── .github/workflows # CI: server tests + Android release APK artifact
+├── android/                      # Kotlin + Jetpack Compose
+│   ├── app/
+│   └── (gradle files, CI builds release APK)
+├── server/                       # Python, deployed to Vercel
+│   ├── api/                      # FastAPI routers: search, candles, patterns, trend, technicals, fundamentals, predictions, scan
+│   ├── core/
+│   │   ├── data.py               # yfinance fetch + validation + cache
+│   │   ├── patterns.py           # pivot engine + 5 pattern detectors
+│   │   ├── indicators.py         # RSI, MACD, EMA, ADX, ATR, Bollinger, S/R
+│   │   ├── trend.py
+│   │   └── constants.py          # interval/range matrix, holidays
+│   ├── data/                     # baked daily by pipeline (committed)
+│   │   ├── symbols.json          # Nifty 500 universe (symbol, name, sector)
+│   │   ├── predictions.json      # daily ML batch output (~500 symbols)
+│   │   └── scan.json             # daily pattern hits across universe
+│   ├── tests/
+│   ├── requirements.txt          # pinned; no TA-Lib C dependency
+│   └── vercel.json
+├── pipeline/                     # runs in GitHub Actions, not on Vercel
+│   ├── eod.py                   # fetch + merge + validate daily bars
+│   ├── features.py              # feature/label construction
+│   ├── train.py                 # 3 models, walk-forward eval
+│   ├── predict.py               # batch predictions.json
+│   ├── scan.py                  # pattern scan -> scan.json
+│   └── kaggle.py                # dataset push/pull helpers
+├── design/
+│   ├── plan.md                   # this document
+│   └── api.md                    # request/response schemas (single source of truth)
+├── .github/workflows/
+│   ├── eod.yml                  # daily pipeline + deploy + APK
+│   ├── ci.yml                   # PR/push: server tests + APK build
+│   └── universe-refresh.yml     # monthly Nifty 500 constituent refresh
+└── AGENTS.md
 ```
 
-Monorepo; shared API contract defined once in `design/api.md` (server implements, Android consumes — no duplication).
+## 4. Secrets (already configured in repo)
 
-### API (v1 contract)
-
-| Endpoint | Params | Returns |
-|---|---|---|
-| `GET /api/search?q=` | prefix/fuzzy query | `[{symbol, name, exchange}]` max 20 |
-| `GET /api/candles` | `symbol, interval, range` | `{symbol, interval, tz:"IST", candles:[{t,o,h,l,c,v}], source}` |
-| `GET /api/patterns` | `symbol, interval, range, pattern?` | `{detections:[{pattern, direction, confidence, anchors:[{t,price}], neckline:[{t,price}]}]}` — anchors are the overlay points |
-| `GET /api/trend` | `symbol, interval, range` | `{label, strength(0-100), ema20, ema50, adx}` |
-| `GET /api/predict` | `symbol` | `{horizons:{'1d':{up:0.62,down:0.38},'2d':{...},'1w':{...}}, trainedOn, nSamples}` |
-
-Valid interval × range matrix (enforced both ends):
-
-| Interval ↓ / Range → | 1D | 5D | 1M | 3M | 6M | 1Y | 5Y |
-|---|---|---|---|---|---|---|---|
-| 5m / 15m / 30m | ✅ | ✅ | ✅ | ⚠️ 60d cap | ❌ | ❌ | ❌ |
-| 1h | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| 1d | — | — | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-## 6. Pattern detection approach
-
-Common base: smooth close (SMA-5), find swing highs/lows via `scipy.signal.find_peaks` with prominence scaled to ATR. Then per pattern:
-
-| Pattern | Rule sketch |
+| Secret | Used by |
 |---|---|
-| Head & Shoulders / Inverse | 3 peaks, middle highest (lowest for inverse), shoulders within ±2.5% of each other, neckline through the 2 intervening troughs |
-| Cup & Handle | Rounded U trough (≥ 5 pivots fitting a quadratic, R² ≥ 0.8), depth 12–30% of cup height, handle: shallow drift (< 1/3 cup depth) above cup rim |
-| Double/Triple Top/Bottom | 2–3 peaks (troughs) within ±3% tolerance, min spacing 5 bars, confirmed by neckline break with volume ≥ 1.5× avg |
-| Bull/Bear Flag | Strong impulse leg (≥ 3 ATR move), then tight counter-channel: range < 1/2 impulse, slope against impulse, breakout closes channel |
+| `KAGGLE_API_KEY` | EOD pipeline: push history + model artifacts to Kaggle datasets |
+| `VERCEL_API_KEY` | CI: `vercel deploy --prod` for `server/` after tests pass |
+| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Same deploy step |
 
-Each detection returns anchor points + neckline so Android draws exact overlay geometry. Confidence = rule-margin score (0–100). Patterns must complete within the selected range; scan window slides across the range and returns all instances (most recent first).
+> Note: current values are placeholders (`hi`). Real values required before M1. No other secrets needed — yfinance and NSE bhavcopy need no keys.
 
-## 7. Trend
+## 5. Daily EOD pipeline (`.github/workflows/eod.yml`)
 
+**Schedule:** `cron: "30 13 * * 1-5"` = 19:00 IST Mon–Fri, after NSE bhavcopy publication and Yahoo EOD settlement. Also `workflow_dispatch` for manual runs.
+
+**Steps (in order):**
+
+1. **Holiday guard** — if today is an NSE holiday (bundled calendar) or no bhavcopy published, exit cleanly without committing.
+2. **Universe** — load `server/data/symbols.json`. (Constituent refresh is a separate monthly job.)
+3. **Fetch today's EOD bars** — NSE bhavcopy (primary, official EOD) + Yahoo daily bars for all 500 symbols. Cross-validate closes (tolerance 0.5%); prefer bhavcopy; flag discrepancies to the job log.
+4. **Accumulate history** — append today's bars to the Kaggle dataset `tpa-history` (`history.parquet`: symbol, date, o/h/l/c/v, adjusted o/h/l/c). One dataset version per day. Backfill script (one-time, manual) loads 10 years from Yahoo adjusted data.
+5. **Build features + labels** (`pipeline/features.py`) — from full history (Kaggle pull), all point-in-time (no lookahead): returns 1/5/10/21d, RSI(14), MACD histogram (÷close), EMA20−EMA50 spread %, EMA50−EMA200 spread %, ADX(14), ATR(14)%, Bollinger width % + position, volume ratio (5d/20d), distance from 52w high/low %, EMA20 slope. Labels per horizon h ∈ {1, 2, 5 sessions}: UP if fwd return > +0.5%, DOWN if < −0.5%, else SIDEWAYS.
+6. **Train** (`pipeline/train.py`) — one `HistGradientBoostingClassifier` (sklearn, no extra deps) per horizon on all pooled symbols (features are scale-free, so pooling works; ~1M rows). Walk-forward evaluation: train on years ≤ T, validate on T+1, rolling 3 folds → report accuracy, log loss, Brier score per class. Wrap in `CalibratedClassifierCV (isotonic, prefit)` for honest probabilities. Push artifacts + `metrics.json` to Kaggle dataset `tpa-models`.
+7. **Batch predict** (`pipeline/predict.py`) — latest bar's features per symbol → probabilities for h1/h2/h5 → `server/data/predictions.json` (schema §9).
+8. **Pattern scan** (`pipeline/scan.py`) — run all 5 detectors over the last 1 year of daily bars per symbol → `server/data/scan.json` (schema §9). This powers "Pattern hits today" on the app.
+9. **Sanity tests** — JSON schema validation, 500 symbols present, probabilities sum to 1.0 ± ε, no NaNs. Fail the job otherwise.
+10. **Commit + push** — `predictions.json`, `scan.json` (single files, overwritten daily — controlled repo growth). Push triggers `ci.yml` which deploys the server and builds the APK.
+
+**Kaggle datasets**
+- `tpa-history`: `history.parquet` (+ `meta.json` with last date). Versioned daily.
+- `tpa-models`: `model_h1.joblib`, `model_h2.joblib`, `model_h5.joblib`, `metrics.json`, `features.json`. Versioned daily.
+- Kaggle is **not** in the request path — only CI reads/writes it.
+
+## 6. Vercel server (FastAPI, `server/`)
+
+Lightweight: FastAPI + yfinance + pandas + numpy + scipy only. Cold start budget < 2s.
+
+| Endpoint | Params | Returns | Source |
+|---|---|---|---|
+| `GET /api/health` | — | `{status, data_as_of}` | local |
+| `GET /api/search?q=` | prefix/fuzzy | `[{symbol, name, sector}]` max 20 | baked `symbols.json` |
+| `GET /api/candles` | `symbol, interval, range` | `{symbol, interval, tz:"Asia/Kolkata", source, candles:[{t,o,h,l,c,v}]}` | yfinance on demand; daily fallback: Kaggle `history.parquet` |
+| `GET /api/patterns` | `symbol, interval, range, pattern?` | `{detections:[{pattern, direction, confidence, anchors:[{t,price}], neckline:[{t,price}]}]}` | computed from candles (§7) |
+| `GET /api/trend` | `symbol, interval, range` | `{label, strength(0–100), ema20, ema50, adx}` | computed (§8.4) |
+| `GET /api/technicals` | `symbol` | indicators, S/R levels, candlestick summary, verdict (§8) | computed from 1y daily bars |
+| `GET /api/fundamentals` | `symbol` | full financials (§10) | yfinance on demand (stable, slow-changing → cache 12h) |
+| `GET /api/predictions` | `symbol` | `{as_of, close, h1/h2/h5:{up,down,sideways}, metrics}` | baked `predictions.json` |
+| `GET /api/scan` | `page?` | today's pattern hits across Nifty 500, grouped by pattern | baked `scan.json` |
+
+**Caching:** per-instance in-memory TTL dict (candles 12h — data only changes at EOD), plus `Cache-Control: public, max-age=3600` on candle/pattern responses. Fundamentals cached 12h. Baked JSONs are read once at module import.
+
+**Interval × range validity matrix** (enforced server-side; app disables invalid combos):
+
+| Interval ↓ / Range → | 1D | 5D | 1M | 3M | 6M | 1Y | 2Y | 5Y | 10Y |
+|---|---|---|---|---|---|---|---|---|---|
+| 5m / 15m / 30m | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 1h | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| 1d | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 1w / 1M | — | — | — | — | — | ✅ | ✅ | ✅ | ✅ |
+
+(1w/1M derived by server-side resampling of daily bars.) Yahoo caps: intraday 5m–30m ≈ 60 days, 1h ≈ 730 days.
+
+**Errors:** `404 unknown_symbol`, `400 invalid_combo`, `503 upstream_unavailable` (Yahoo down + fallback exhausted → app shows "Data unavailable, try after today's EOD sync"). All timestamps IST; trading-session filter 09:15–15:30 IST; bundled NSE holiday calendar.
+
+## 7. Pattern detection (server + pipeline share `patterns.py`)
+
+**Base engine:** smooth close with SMA(5) → swing pivots via `scipy.signal.find_peaks` (prominence = 1.5 × ATR(14)) → candidate segments → per-pattern geometry rules → confidence score 0–100 from rule margins → output anchors + neckline for exact chart overlay. Scan window slides across the requested range; all instances returned, most recent first.
+
+| Pattern | Direction | Rules (sketch — final thresholds tuned in M3 against hand-labelled fixtures) |
+|---|---|---|
+| Head & Shoulders | bearish | 3 swing highs; middle peak highest by ≥ 1 ATR; shoulders within ±2.5% of each other; neckline through 2 intervening troughs (slope < 30% of pattern height); optional volume decline L→R |
+| Inverse H&S | bullish | mirror image on swing lows |
+| Cup & Handle | bullish | ≥ 5 pivots on lows fitting quadratic (R² ≥ 0.8, U-shape); depth 12–30% of cup height; handle drifts ≤ 1/3 cup depth below rim; handle duration 5–25 bars |
+| Double Top / Bottom | bearish / bullish | 2 peaks (troughs) within ±3% tolerance; spacing ≥ 5 bars; neckline = intervening trough (peak); confirmed on close beyond neckline |
+| Triple Top / Bottom | bearish / bullish | 3 extremes within ±3% of their mean |
+| Bull Flag | bullish | impulse leg ≥ 3 ATR in ≤ 15 bars; flag channel range ≤ 1/2 impulse, slope opposing impulse; breakout close exits channel |
+| Bear Flag | bearish | mirror of bull flag |
+
+Dropdown shows the 5 families (H&S includes inverse; D/T includes top+bottom; Flag includes bull+bear). Confirmations: neckline/channel break with close + volume ≥ 1.5 × 20-bar average boosts confidence. Minimum pattern width: 15 bars (intraday) / 20 bars (daily). Every detection carries `{pattern, direction, confidence, anchors, neckline}` so the overlay is drawn precisely, not approximated.
+
+## 8. Technicals tab (server-computed, `/api/technicals`)
+
+**8.1 Indicator gauges** (from 1y daily bars): RSI(14) with overbought/oversold zones; MACD(12,26,9) line/signal/histogram; EMA 20/50/200 with golden/death-cross status; ADX(14) + DI+/DI−; ATR(14) as % of close; Bollinger(20,2) width + price position; volume: 5d vs 20d ratio + OBV slope.
+
+**8.2 Support/Resistance:** (a) swing-pivot clustering over 6 months — levels within 0.75 × ATR merged, ranked by touch count + recency + volume at touches, top 5 each side; (b) classic floor pivots (PP, R1–R3, S1–S3) from last session OHLC.
+
+**8.3 Candlestick summary** (last 5 sessions, native pandas-ta-classic CDL or equivalent hand-rolled set): bullish/bearish engulfing, hammer, shooting star, doji, morning/evening star — shown as dated chips.
+
+**8.4 Trend:** `score = 0.35·sign(EMA20 slope) + 0.25·sign(EMA50 slope) + 0.25·sign(close−EMA50) + 0.15·(ADX>25)` → Uptrend (> 0.35) / Downtrend (< −0.35) / Sideways; strength = |score|·100.
+
+**8.5 Verdict card:** "12 indicators → n bullish / n bearish / n neutral" aggregate with the ML Outlook card (§9 predictions) directly beneath it.
+
+## 9. ML predictions (spec + baked JSON)
+
+**Model:** 3 × `HistGradientBoostingClassifier` (h1, h2, h5 sessions ahead), pooled across all Nifty 500 symbols, class-weighted, isotonic-calibrated. Trained daily in CI (§5 step 6). Retraining cost ~minutes on standard runners.
+
+**`server/data/predictions.json` schema:**
+```json
+{
+  "as_of": "2026-10-16",
+  "model_trained_on": "2026-10-16",
+  "metrics": {"h1": {"accuracy": 0.54, "log_loss": 1.02, "brier": 0.61},
+              "h2": {...}, "h5": {...}},
+  "predictions": [
+    {"symbol": "RELIANCE", "close": 1437.90,
+     "h1": {"up": 0.42, "down": 0.31, "sideways": 0.27},
+     "h2": {"up": 0.38, "down": 0.35, "sideways": 0.27},
+     "h5": {"up": 0.45, "down": 0.30, "sideways": 0.25}}
+  ]
+}
 ```
-score = w1·sign(EMA20 slope) + w2·sign(EMA50 slope) + w3·(close vs EMA50) + w4·(ADX>25 bonus)
-label  = Uptrend (score>0.35) / Downtrend (<-0.35) / Sideways (else)
-strength = |score|·100
-```
 
-## 8. ML trend prediction
+**`server/data/scan.json` schema:** `{as_of, hits: [{symbol, pattern, direction, confidence, anchors, neckline}]}` — only detections completing within the last 5 sessions, newest first.
 
-- **Model:** scikit-learn `LogisticRegression` (multinomial: UP / DOWN / FLAT, FLAT = ±0.5% band), one binary-style classifier per horizon (1d, 2d, 1w ahead) — 3 small models per symbol, trained on request, cached until next trading session.
-- **Data:** symbol's own daily bars (up to 10y from yfinance, auto-adjusted).
-- **Features (all point-in-time):** returns (1/3/5/10d), RSI(14), MACD histogram, EMA20/50 spread %, ADX, ATR%, volume ratio, distance from 52w high/low.
-- **Validation:** walk-forward split reported as `nSamples` + honest accuracy in the response for transparency.
-- **Output:** `predict_proba` → {up, down} per horizon (FLAT folded into report as "range-bound" note).
-- Fallback if < 500 samples: pooled global model (pre-trained artifact committed to repo, ~100 KB joblib) covering all symbols.
+**Honesty in UI:** each prediction card shows the horizon's walk-forward accuracy from `metrics` (e.g. "1d accuracy 54%") so users never read 60% UP as certainty.
 
-## 9. Android app
+## 10. Fundamentals tab (server, `/api/fundamentals`, yfinance)
 
-- Kotlin, Jetpack Compose, min SDK 26, R8/minify + resource shrinking on, cold-start fast, INTERNET only permission.
-- **Design: glassmorphism** — frosted translucent surfaces, soft blur, subtle 1dp borders, layered depth, dark-first palette.
-- Screens:
-  - **Search** — hero search bar on blurred gradient backdrop; live results list (glass cards); recent searches + watchlist chips below.
-  - **Chart** — top: symbol header + trend badge; middle: candlestick chart (MPAndroidChart `CandleDataSet` + line DataSets for pattern anchors/neckline, volume sub-chart); pattern dropdown, range dropdown, interval dropdown (glass dropdowns); detection chips; bottom: ML prediction card (3 horizons, probability bars).
-- Chart library: **MPAndroidChart** (mature candlestick support; Vico lacks native candles).
+| Section | Fields | Source |
+|---|---|---|
+| Header | name, sector, industry, mcap, price, 52w range, beta | `Ticker.info` |
+| Valuation | P/E TTM, forward P/E, P/B, dividend yield, EPS TM, book value/share | `info` |
+| Profitability | ROE, ROA, gross/operating/net margins | `info` + derived from statements |
+| Quarterly results | revenue, PAT, EPS, margin per quarter (last 8) + YoY growth | `quarterly_income_stmt` |
+| Annual financials | income statement, balance sheet, cash flow (last 4 yrs), rendered as compact tables | `income_stmt`, `balance_sheet`, `cashflow_stmt` |
+| Corporate actions | dividend history, splits/bonuses | `Ticker.dividends/splits` + NSE corporate actions |
+| Shareholding | promoter / FII / DII / public %, latest quarter | NSE (via nselib-style fetch) — **best-effort**; tab section degrades gracefully if NSE blocks |
 
-## 10. Diagrams
+All sections are independently sourced — one failing source never blanks the tab.
 
-### 10.1 User flow
+## 11. Android app (Kotlin, Jetpack Compose)
+
+**Stack:** min SDK 26, Compose, MPAndroidChart (candlestick), Room (watchlist + last-viewed payload cache — EOD data makes caching trivially correct), Retrofit + kotlinx.serialization, R8/minify + resource shrinking, INTERNET-only permission, dark-first.
+
+**Navigation:**
+- **Home = Search**: hero search bar (autofocus), glass result cards (symbol, name, sector); below: recent searches, watchlist chips, "Pattern hits today" horizontal scroll (from `/api/scan`).
+- **Symbol screen = 3 tabs** (glass tab bar): **Fundamentals | Technicals | Charts & Patterns**.
+
+**Tab content:**
+- *Fundamentals:* scrollable glass sections per §10; quarterly results as mini bar charts; statements as expandable tables.
+- *Technicals:* gauge grid (RSI/MACD/ADX/ATR/Bollinger/EMA cards with value + bullish/bearish/neutral coloring), S/R level list (price ladder against last close), candlestick chips, trend badge, **verdict card**, **ML Outlook card** (3 horizons × probability bars UP/DOWN/SIDEWAYS + per-horizon accuracy footnote + "as of" date + disclaimer).
+- *Charts & Patterns:* candlestick chart + volume sub-chart; glass dropdowns: pattern family (5), interval (5m/15m/30m/1h/1d/1w/1M), range (validated matrix); selected pattern drawn as overlay line through anchors + dashed neckline + shaded pattern zone; detection chips (all 5 scanned for current view, tappable); confidence badge on each chip.
+
+**Glassmorphism spec (consistent everywhere):** dark gradient backdrop with soft color blobs; surfaces = 8% white alpha + 24dp backdrop blur + 1dp 12% white border + 20dp corner radius; depth via layering; accent green `#34D399` (bullish), red `#F87171` (bearish), amber `#FBBF24` (neutral/sideways); no opaque panels.
+
+**EOD behavior:** no refresh spinners/auto-poll; every screen shows a subtle "Data as of {date} · EOD" pill; a manual pull-to-refresh exists but is clearly labeled optional. Watchlist and last-viewed tabs render offline from Room.
+
+**Disclaimer:** fixed footer on symbol screen: "Educational use only. Not investment advice."
+
+## 12. Diagrams
+
+### 12.1 User flow
 
 ```mermaid
 flowchart TD
-    A[App launch] --> B[Search screen - search bar focused]
-    B -->|types query| C[GET /api/search?q=]
-    C --> D[Similar symbols list]
-    D -->|selects symbol| E[GET /api/candles + /api/trend]
-    E --> F[Chart screen: candles + trend badge]
-    F --> G{User selects pattern / range / interval}
-    G --> H[GET /api/patterns]
-    H --> I[Pattern overlaid on chart + confidence]
-    F --> J[ML card loads]
-    J --> K[GET /api/predict]
-    K --> L[1d/2d/1w probabilities shown]
-    F --> M[Add to watchlist - local]
+    A[Launch] --> B[Search home - EOD pill shown]
+    B -->|types| C[GET /api/search]
+    C --> D[Symbol results - glass cards]
+    D -->|tap| E[Symbol screen: 3 tabs]
+    E --> F[Fundamentals tab]
+    E --> G[Technicals tab: gauges, S/R, verdict, ML outlook]
+    E --> H[Charts & Patterns tab]
+    H --> I[Select pattern/interval/range]
+    I --> J[GET /api/patterns]
+    J --> K[Overlay drawn: anchors + neckline + confidence]
+    B --> L[Pattern hits today - from scan.json]
 ```
 
-### 10.2 Sequence: symbol → chart → pattern → prediction
+### 12.2 EOD pipeline sequence
 
 ```mermaid
 sequenceDiagram
-    participant A as Android App
-    participant S as Vercel API
-    participant Y as Yahoo (yfinance)
+    participant CI as GitHub Actions (19:00 IST)
     participant N as NSE bhavcopy
+    participant Y as Yahoo/yfinance
+    participant K as Kaggle datasets
+    participant R as GitHub repo
+    participant V as Vercel
+    participant A as Android app
 
-    A->>S: GET /api/search?q=rel
-    S-->>A: matching symbols
-
-    A->>S: GET /api/candles?symbol=RELIANCE&interval=1h&range=3M
-    S->>Y: fetch OHLCV (.NS)
-    alt Yahoo fails
-        S->>N: bhavcopy fallback (EOD)
-    end
-    Y-->>S: candles
-    S-->>A: candles (IST, adjusted)
-
-    A->>S: GET /api/patterns?symbol=...&pattern=cup_and_handle
-    S->>S: pivot detection + geometry rules
-    S-->>A: anchors + neckline + confidence
-
-    A->>S: GET /api/trend
-    S-->>A: Uptrend/Downtrend/Sideways + strength
-
-    A->>S: GET /api/predict?symbol=RELIANCE
-    S->>S: cache hit? else train LR per horizon
-    S-->>A: {1d:{up,down}, 2d:{...}, 1w:{...}}
+    CI->>N: today's bhavcopy
+    CI->>Y: EOD bars (validate/merge)
+    CI->>K: append history.parquet (version)
+    CI->>K: pull full history
+    CI->>CI: build features/labels (no lookahead)
+    CI->>CI: train h1/h2/h5 + walk-forward metrics
+    CI->>K: push model artifacts + metrics
+    CI->>CI: batch predict 500 symbols -> predictions.json
+    CI->>CI: pattern scan -> scan.json
+    CI->>R: commit + push JSONs
+    R->>V: auto-deploy server
+    R->>CI: APK build artifact
+    A->>V: next morning - reads fresh predictions/scan/candles
 ```
 
-## 11. CI/CD
+### 12.3 Symbol screen request sequence
 
-- GitHub Actions on every push/PR: server tests (pytest) + Android build → **release APK artifact**.
-- Daily cron: refresh `symbols.json` snapshot, commit if changed.
-- Vercel: auto-deploy on merge to main (zero manual steps).
-- GitHub Release (with APK) on major milestones.
+```mermaid
+sequenceDiagram
+    participant A as Android
+    participant V as Vercel
+    participant Y as Yahoo
 
-## 12. Milestones
+    A->>V: GET /api/technicals?symbol=RELIANCE
+    V->>Y: 1y daily bars (cached 12h)
+    V->>V: indicators + S/R + trend
+    V-->>A: technicals payload
 
-| M | Deliverable |
+    A->>V: GET /api/fundamentals?symbol=RELIANCE
+    V->>Y: info + statements (cached 12h)
+    V-->>A: fundamentals payload
+
+    A->>V: GET /api/candles?interval=1d&range=1Y
+    V-->>A: candles (IST, adjusted)
+    A->>V: GET /api/patterns?pattern=cup_and_handle
+    V->>V: pivots + geometry on cached candles
+    V-->>A: anchors + neckline + confidence
+
+    A->>V: GET /api/predictions?symbol=RELIANCE
+    V-->>A: baked h1/h2/h5 probabilities + metrics
+```
+
+## 13. CI/CD
+
+| Workflow | Trigger | Jobs |
+|---|---|---|
+| `ci.yml` | push, PR | server pytest; Android assembleRelease (R8) → **APK artifact**; optional `vercel deploy --prod` (main only, after tests) using the 3 Vercel secrets |
+| `eod.yml` | cron 13:30 UTC Mon–Fri + manual | full §5 pipeline; ends by pushing JSONs (which re-triggers `ci.yml` deploy) |
+| `universe-refresh.yml` | monthly | re-fetch Nifty 500 constituents → update `symbols.json`, PR for review |
+
+Releases: GitHub Release with CI-built APK at M7 and any major feature milestone.
+
+## 14. Testing strategy
+
+- **Server (pytest):** pattern detectors against synthetic OHLC fixtures (one hand-crafted positive + near-miss negative per pattern); indicator golden values; interval/range matrix enforcement; API contract tests mirroring `design/api.md`; predictions.json/scan.json schema validation.
+- **Pipeline:** dry-run mode running on 20 symbols against a checked-in sample parquet; lookahead-bias test (shuffle future bars must not change features at t).
+- **Android:** ViewModel unit tests (search debounce, dropdown state, Room cache); contract tests against recorded API fixtures.
+- CI is the only gate; local runs are sanity checks.
+
+## 15. Milestones
+
+| M | Deliverable | Acceptance |
+|---|---|---|
+| M0 | Repo scaffolding, `ci.yml` green, server skeleton on Vercel (real secrets) | health endpoint live; APK artifact builds |
+| M1 | Universe + EOD ingestion: `symbols.json`, bhavcopy+Yahoo fetch, Kaggle `tpa-history` daily versioning; `/api/search`, `/api/candles` | 500 symbols searchable; parquet grows daily |
+| M2 | Android: search home + symbol screen shell (3 tabs) + candlestick chart with interval/range dropdowns | chart renders 1d/1Y from live API |
+| M3 | Pattern engine + `/api/patterns` + chart overlay + detection chips; pytest fixtures pass | all 5 families detect on known synthetic cases |
+| M4 | `/api/technicals` + `/api/trend` + Technicals tab (gauges, S/R, candle chips, verdict) | tab fully renders for any Nifty 500 symbol |
+| M5 | ML: features, training, calibration, `predictions.json`, `/api/predictions` + ML Outlook card | daily cron produces probabilities + metrics; walk-forward metrics logged |
+| M6 | `/api/fundamentals` + Fundamentals tab (all §10 sections) | full financials render; sections degrade independently |
+| M7 | `scan.json` + "Pattern hits today" + watchlist + polish (glass pass, Room cache, offline tabs) | release APK + GitHub Release |
+
+## 16. Risks & mitigations
+
+| Risk | Mitigation |
 |---|---|
-| M0 | Scaffolding, CI green, Vercel deployed skeleton |
-| M1 | `/api/search` + `/api/candles` with fallback; Android search screen |
-| M2 | Chart screen with range/interval dropdowns, volume, glass UI |
-| M3 | Pattern detection (all 5) + chart overlay + confidence chips |
-| M4 | Trend calculation + badge |
-| M5 | ML prediction card (3 horizons, probabilities, cached training) |
-| M6 | Watchlist, polish, release APK + GitHub Release |
+| Yahoo intraday caps / outages | validity matrix caps requests; daily-bar fallback from Kaggle `history.parquet`; graceful `503` with EOD messaging |
+| Kaggle API limits / dataset growth | single parquet (compact, ~500×2500 rows/yr); version pruning monthly; Kaggle never in hot path |
+| Repo growth from daily JSON commits | files overwritten (not appended); predictions ~300KB, scan ~200KB, git delta-friendly; acceptable |
+| Bhavcopy publication delay > 19:00 IST | pipeline retries 3× (30-min backoff); holiday guard prevents empty commits |
+| Class imbalance (sideways dominant) | class weights + 3-class probabilities; isotonic calibration |
+| ML accuracy will be modest (~52–58%) | metrics shown in UI; framed as educational, never as signal |
+| NSE anti-bot for shareholding/corporate actions | best-effort sections; independent sourcing — tab never blanks |
+| Vercel cold start | no Kaggle/model loading on request path; small deps; baked JSONs |
+| Secrets are placeholders | M0 blocker — real Vercel/Kaggle creds needed before M1 |
 
-## 13. Risks
+## 17. Deliberately excluded (v1)
 
-- Yahoo rate-limits / schema changes → bhavcopy fallback + aggressive caching + `source` field shown in UI.
-- Logistic regression accuracy will be modest (~52–58% directional) → shown honestly with sample counts; this is educational tooling, not a trading signal.
-- NSE symbol universe churn → daily CI refresh of symbols.json.
+Live streaming, broker logins (Zerodha/Upstox), options/F&O data, push alerts, backtesting, custom pattern drawing, news feed, portfolio tracking, per-symbol bespoke models. All revisit post-v1.
+
+## 18. Open item
+
+None blocking. Shareholding-pattern source (NSE scraping robustness) is the only best-effort surface; if it proves unreliable in M6, the section ships hidden rather than broken.
