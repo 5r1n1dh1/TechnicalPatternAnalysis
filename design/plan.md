@@ -176,6 +176,8 @@ Dropdown shows the 5 families (H&S includes inverse; D/T includes top+bottom; Fl
 
 **Model:** 3 × `HistGradientBoostingClassifier` (h1, h2, h5 sessions ahead), pooled across all Nifty 500 symbols, class-weighted, isotonic-calibrated. Trained daily in CI (§5 step 6). Retraining cost ~minutes on standard runners.
 
+**Training approach (locked):** generalized only — one model per horizon shared by all symbols; **no per-symbol models**. Rationale: features are scale-free so pooling is valid; ~1.2M sample rows beat any single stock's ~2,500; 1,500 per-symbol models would overfit and slow the pipeline. Per-symbol fine-tuning is explicitly out of scope for v1.
+
 **`server/data/predictions.json` schema:**
 ```json
 {
