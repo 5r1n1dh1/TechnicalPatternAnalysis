@@ -14,6 +14,7 @@ Operating rules for all agents working in this repository. Follow every rule. Ru
 
 - Output a jargon-free summary only. Plain language. No buzzwords.
 - No conversational padding. State what was done, what changed, and what's next — nothing else.
+- Always interview for open questions or when in need user input.
 
 ## 3. Workflow
 
@@ -32,6 +33,7 @@ Operating rules for all agents working in this repository. Follow every rule. Ru
 
 - **Always use GitHub Actions** for build, test, and verification. Never build or test locally as the source of truth — local checks are fine for quick sanity, but CI is the gate.
 - CI must build, test, and verify **every** push and PR.
+- Always use installed `gh` app for repo actions such as actions trigger, variables fetch etc.,
 
 ## 6. Android App
 
