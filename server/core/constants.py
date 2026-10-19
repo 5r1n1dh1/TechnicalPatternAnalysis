@@ -29,6 +29,8 @@ WACC_BULL_G: Final[float] = 0.05
 WACC_BASE_G: Final[float] = 0.04
 WACC_BEAR_G: Final[float] = 0.025
 
+PREDICTIONS_MAX_AGE_HRS: Final[int] = 24  # C23
+
 # Quality tiers (§6, §4) — never change without halt.
 MO_QUALITY_TIERS: Final[dict] = {
     "tier1": {"roce_min": 20.0, "cfo_pat_min": 0.8, "mos_min": 0.15, "mos_max": 0.20},

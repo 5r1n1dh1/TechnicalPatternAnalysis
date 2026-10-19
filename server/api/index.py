@@ -53,6 +53,8 @@ def create_app() -> FastAPI:
     app.include_router(candles.router, prefix="/api")
     from resample import router as resample_router
     app.include_router(resample_router, prefix="/api")
+    from decision import router as decision_router
+    app.include_router(decision_router, prefix="/api")
 
     return app
 
