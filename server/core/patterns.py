@@ -278,9 +278,9 @@ def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
         low = candles['low'].values
         close = candles['close'].values
         atr_vals = candles['atr'].values if 'atr' in candles.columns else np.ones_like(close)
-        pivots = find_pivots(close, high, low, atr_vals, use_smoothing=True, prominence_mult=0.5)
+        pivots = find_pivots(close, high, low, atr_vals, use_smoothing=True)
         if len(pivots) < 3:
-            pivots = find_pivots(close, high, low, atr_vals, use_smoothing=False, prominence_mult=0.5)
+            pivots = find_pivots(close, high, low, atr_vals, use_smoothing=False)
     except Exception:
         pivots = []
 
