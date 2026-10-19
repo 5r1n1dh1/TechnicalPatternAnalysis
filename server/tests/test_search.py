@@ -17,19 +17,19 @@ def test_search_empty(client: TestClient):
 
 def test_search_exact(client: TestClient):
     """Test search with exact match."""
-    response = client.get("/api/search?q=MSFT")
+    response = client.get("/api/search?q=RELIANCE")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["symbol"] == "MSFT"
+    assert data[0]["symbol"] == "RELIANCE"
 
 def test_search_fuzzy(client: TestClient):
     """Test search with fuzzy matching."""
-    response = client.get("/api/search?q=GOO")
+    response = client.get("/api/search?q=TCS")
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
-    assert any(item["symbol"] == "GOOGL" for item in data)
+    assert any(item["symbol"] == "TCS" for item in data)
 
 def test_search_limit(client: TestClient):
     """Test that results are limited to 20."""
@@ -39,9 +39,9 @@ def test_search_limit(client: TestClient):
 
 def test_search_case_insensitive(client: TestClient):
     """Test case-insensitive search."""
-    response = client.get("/api/search?q=GoOg")
+    response = client.get("/api/search?q=reLiAnCe")
     assert response.status_code == 200
-    assert any(item["symbol"] == "GOOGL" for item in response.json())
+    assert any(item["symbol"] == "RELIANCE" for item in response.json())
 
 def test_search_no_results(client: TestClient):
     """Test that empty results return empty list."""

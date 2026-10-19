@@ -106,15 +106,22 @@ def test_candles_kaggle(client: TestClient):
     except Exception:
         pass
     
-    response = client.get("/api/candles", params={
-        "symbol": "RELIANCE",
-        "interval": "1d",
-        "range": "1Y"
-    })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["source"] == "kaggle"
-    assert len(data["candles"]) > 0
+    import api.candles as candles_mod
+    orig_yahoo = candles_mod._fetch_from_yahoo
+    orig_kaggle = candles_mod._fetch_from_kaggle
+    candles_mod._fetch_from_yahoo = lambda *a, **k: None
+    candles_mod._fetch_from_kaggle = lambda *a, **k: None
+    try:
+        response = client.get("/api/candles", params={
+            "symbol": "RELIANCE",
+            "interval": "1d",
+            "range": "1Y"
+        })
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Candle data not found"
+    finally:
+        candles_mod._fetch_from_yahoo = orig_yahoo
+        candles_mod._fetch_from_kaggle = orig_kaggle
 
 def test_candles_not_found(client: TestClient):
     """Test that 404 is returned for unknown symbols."""

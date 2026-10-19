@@ -81,15 +81,7 @@ def bollinger_band(close: np.ndarray, period: int = 20, std: int = 2) -> tuple[f
     lower = ma[-1] - std * std_s[-1]
     width = float((upper - lower) / ma[-1])
     position = float((close[-1] - lower) / (upper - lower + 1e-9))
-    median_120 = np.median(width) if len(width) >= 120 else width
-    squeeze = width < 0.5 * np.median(s.rolling(period, min_periods=period).mean().std().to_numpy()[-120:] + 1e-9) if len(width) >= 120 else False
-    # Simplified: use rolling std median of width approximation
-    squeeze_flag = False
-    if len(width) >= 120:
-        widths = (s.rolling(period).mean() * 4).to_numpy()  # approximate width series via std proxy not needed; use actual width series
-        # Recompute properly
-        pass
-    # Recompute width series correctly
+    # Width series is recomputed below (correctly) to derive the squeeze flag.
     ma_series = s.rolling(period, min_periods=period).mean()
     std_series = s.rolling(period, min_periods=period).std()
     upper_series = ma_series + std * std_series
