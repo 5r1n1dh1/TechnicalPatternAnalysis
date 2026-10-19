@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import pandas as pd
 import numpy as np
 
-from ..patterns import SwingPivot, Detection
+from ..patterns import (
+    SwingPivot,
+    Detection,
+    TrendValidityMixin,
+    VolumeValidityMixin,
+    calculate_confidence,
+)
+from ..structure import atr as compute_atr
 
 
-class HeadShouldersDetector:
+class HeadShouldersDetector(TrendValidityMixin, VolumeValidityMixin):
     """Detects bearish and bullish Head & Shoulders patterns."""
 
     def detect(self, pivots: List[SwingPivot], candles: pd.DataFrame) -> List[Detection]:
@@ -23,120 +30,160 @@ class HeadShouldersDetector:
         Returns:
             List of Detection objects.
         """
-        # Need at least 5 pivots to form H&S
+        # Need at least 5 pivots to form H&S (LS, T1, H, T2, RS)
         if len(pivots) < 5:
             return []
 
         # Sort pivots by index (chronological)
         pivots_sorted = sorted(pivots, key=lambda p: p.idx)
 
-        # Identify potential heads and shoulders
-        # Head = peak with two lower highs between
-        # Shoulder = peak with one lower high between
-        # We look for patterns where:
-        # - Last 3 pivots form the head (peak, trough, peak)
-        # - Middle pivot is the shoulder (lower peak)
-        # - Before that, a preceding peak forms the head
-
         detections = []
 
-        # Scan for head patterns (bearish)
-        for i in range(len(pivots_sorted) - 2):
-            # Potential head: peak at i, trough at i+1, peak at i+2
-            if (pivots_sorted[i].is_high and
-                pivots_sorted[i + 1].is_high == False and  # trough
-                pivots_sorted[i + 2].is_high and
-                # Ensure the middle is actually a trough (lower than neighbors)
-                pivots_sorted[i + 1].price < pivots_sorted[i].price and
-                pivots_sorted[i + 2].price < pivots_sorted[i + 1].price):
-                # Check for confirmation: subsequent peak higher than both
-                if i + 3 < len(pivots_sorted):
-                    if pivots_sorted[i + 3].is_high and pivots_sorted[i + 3].price > pivots_sorted[i].price:
-                        # Valid head
-                        detection = self._build_head_detection(
-                            pivots_sorted[i:i + 3], candles
-                        )
-                        if detection:
-                            detections.append(detection)
+        # Scan for bearish H&S: high, low, high, low, high (left shoulder, trough, head, trough, right shoulder)
+        for i in range(len(pivots_sorted) - 4):
+            p1, p2, p3, p4, p5 = pivots_sorted[i], pivots_sorted[i+1], pivots_sorted[i+2], pivots_sorted[i+3], pivots_sorted[i+4]
+            # Check structure: high, low, high, low, high
+            if (p1.is_high and not p2.is_high and p3.is_high and not p4.is_high and p5.is_high):
+                # Head (p3) should be higher than both shoulders
+                if p3.price > p1.price and p3.price > p5.price:
+                    # Shoulders should be similar height (within ~5%)
+                    shoulder_diff = abs(p1.price - p5.price) / max(p1.price, p5.price)
+                    if shoulder_diff < 0.1:  # Within 10% is lenient for synthetic data
+                        # Prior trend should be uptrend for bearish H&S
+                        if self.has_prior_trend(candles, 'bearish'):
+                            detection = self._build_bearish_hs_detection([p1, p2, p3, p4, p5], candles, i)
+                            if detection:
+                                detections.append(detection)
 
-        # Scan for shoulder patterns (bullish)
-        for i in range(len(pivots_sorted) - 2):
-            # Shoulder: peak at i, trough at i+1, peak at i+2
-            if (pivots_sorted[i].is_high and
-                pivots_sorted[i + 1].is_high == False and  # trough
-                pivots_sorted[i + 2].is_high and
-                # Ensure the middle is actually a trough
-                pivots_sorted[i + 1].price < pivots_sorted[i].price and
-                pivots_sorted[i + 2].price < pivots_sorted[i + 1].price):
-                # Check for confirmation: subsequent peak higher than both
-                if i + 3 < len(pivots_sorted):
-                    if pivots_sorted[i + 3].is_high and pivots_sorted[i + 3].price > pivots_sorted[i].price:
-                        # Valid shoulder
-                        detection = self._build_shoulder_detection(
-                            pivots_sorted[i:i + 3], candles
-                        )
-                        if detection:
-                            detections.append(detection)
+        # Scan for bullish inverse H&S: low, high, low, high, low
+        for i in range(len(pivots_sorted) - 4):
+            p1, p2, p3, p4, p5 = pivots_sorted[i], pivots_sorted[i+1], pivots_sorted[i+2], pivots_sorted[i+3], pivots_sorted[i+4]
+            # Check structure: low, high, low, high, low
+            if (not p1.is_high and p2.is_high and not p3.is_high and p4.is_high and not p5.is_high):
+                # Inverse head (p3) should be lower than both shoulders (p1, p5)
+                if p3.price < p1.price and p3.price < p5.price:
+                    # Shoulders similar
+                    shoulder_diff = abs(p1.price - p5.price) / max(p1.price, p5.price)
+                    if shoulder_diff < 0.1:
+                        if self.has_prior_trend(candles, 'bullish'):
+                            detection = self._build_bullish_hs_detection([p1, p2, p3, p4, p5], candles, i)
+                            if detection:
+                                detections.append(detection)
 
         return detections
 
-    def _build_head_detection(self, pivots: List[SwingPivot], candles: pd.DataFrame) -> Optional[Detection]:
-        """Build detection for a bearish head pattern."""
-        # Calculate pattern metrics
-        head_price = pivots[-1].price
-        neckline_price = pivots[-2].price  # second peak acts as neckline
-        # Measure move: neckline +/- (head - neckline)
-        measure_move = neckline_price + (head_price - neckline_price)
+    def _get_atr(self, candles: pd.DataFrame) -> float:
+        if "atr" in candles.columns:
+            try:
+                return float(candles["atr"].iloc[-1])
+            except Exception:
+                pass
+        try:
+            high = candles["high"].values
+            low = candles["low"].values
+            close = candles["close"].values
+            atr_vals = compute_atr(high, low, close, period=14)
+            return float(atr_vals[-1]) if len(atr_vals) > 0 else 0.0
+        except Exception:
+            return 0.0
 
-        # Stop: beyond neckline + 0.5 ATR
-        stop_price = neckline_price + 0.5 * candles["atr"].iloc[-1]
+    def _build_bearish_hs_detection(self, pivots: List[SwingPivot], candles: pd.DataFrame, start_idx: int) -> Optional[Detection]:
+        """Build detection for bearish head and shoulders: pivots [LS, T1, H, T2, RS]."""
+        ls, t1, h, t2, rs = pivots[0], pivots[1], pivots[2], pivots[3], pivots[4]
 
-        # R:R based on measured move
-        rr = measure_move - head_price if measure_move > head_price else abs(head_price - neckline_price)
+        # Neckline connects t1 and t2
+        neckline_price = (t1.price + t2.price) / 2.0
+
+        # Measured move: distance from head to neckline, projected down
+        measured_move = h.price - neckline_price
+        target_price = neckline_price - measured_move
+
+        atr_val = self._get_atr(candles)
+        stop_price = neckline_price + 0.5 * atr_val if atr_val > 0 else neckline_price * 1.01
+
+        # R:R
+        risk = abs(stop_price - neckline_price)  # breakout level assumption around neckline? Or entry
+        reward = abs(neckline_price - target_price)
+        rr = reward / risk if risk > 0 else 0.0
+
+        # Confidence calculation
+        factors = {}
+        # Head prominence
+        if h.price / max(ls.price, rs.price) > 1.2:
+            factors["head_prominence"] = 5.0
+        # Shoulder symmetry
+        shoulder_diff = abs(ls.price - rs.price) / max(ls.price, rs.price)
+        if shoulder_diff < 0.05:
+            factors["symmetry"] = 10.0
+        elif shoulder_diff < 0.1:
+            factors["symmetry"] = 5.0
+        # Volume confirmation
+        if self.check_volume_sequence(candles):
+            factors["volume"] = 5.0
+        confidence = calculate_confidence(factors, base=70.0)
+
+        anchors = [
+            {"t": str(ls.idx), "price": float(ls.price)},
+            {"t": str(h.idx), "price": float(h.price)},
+            {"t": str(rs.idx), "price": float(rs.price)},
+        ]
 
         return Detection(
             pattern="head_and_shoulders",
             direction="bearish",
-            confidence=85.0,  # default confidence
-            anchors=[{
-                "t": str(pivots[-1].idx),
-                "price": float(pivots[-1].price)
-            }, {
-                "t": str(pivots[-2].idx),
-                "price": float(pivots[-2].price)
-            }],
-            neckline={"t": str(pivots[-2].idx), "price": float(pivots[-2].price)},
-            target_price=measure_move,
-            stop_price=stop_price,
-            rr=rr,
-            invalidation_note="Neckline recaptured or new extreme breaks pattern"
+            confidence=confidence,
+            anchors=anchors,
+            neckline={"t": str(t2.idx), "price": float(neckline_price)},
+            target_price=float(target_price),
+            stop_price=float(stop_price),
+            rr=float(rr),
+            invalidation_note="Neckline recaptured or closes above right shoulder"
         )
 
-    def _build_shoulder_detection(self, pivots: List[SwingPivot], candles: pd.DataFrame) -> Optional[Detection]:
-        """Build detection for a bullish shoulder pattern."""
-        # Similar structure to head detection but inverted
-        shoulder_price = pivots[-1].price
-        neckline_price = pivots[-2].price
-        measure_move = neckline_price + (shoulder_price - neckline_price)
+    def _build_bullish_hs_detection(self, pivots: List[SwingPivot], candles: pd.DataFrame, start_idx: int) -> Optional[Detection]:
+        """Build detection for bullish inverse head and shoulders: pivots [LS_low, T1, H_low, T2, RS_low]."""
+        ls, t1, h, t2, rs = pivots[0], pivots[1], pivots[2], pivots[3], pivots[4]
 
-        stop_price = neckline_price - 0.5 * candles["atr"].iloc[-1]
+        # Neckline connects t1 and t2 (highs)
+        neckline_price = (t1.price + t2.price) / 2.0
 
-        rr = measure_move - shoulder_price if measure_move > shoulder_price else abs(shoulder_price - neckline_price)
+        # Measured move up
+        measured_move = neckline_price - h.price
+        target_price = neckline_price + measured_move
+
+        atr_val = self._get_atr(candles)
+        stop_price = neckline_price - 0.5 * atr_val if atr_val > 0 else neckline_price * 0.99
+
+        risk = abs(neckline_price - stop_price)
+        reward = abs(target_price - neckline_price)
+        rr = reward / risk if risk > 0 else 0.0
+
+        factors = {}
+        if neckline_price / min(ls.price, rs.price) > 1.2:
+            factors["head_prominence"] = 5.0
+        shoulder_diff = abs(ls.price - rs.price) / max(ls.price, rs.price)
+        if shoulder_diff < 0.05:
+            factors["symmetry"] = 10.0
+        elif shoulder_diff < 0.1:
+            factors["symmetry"] = 5.0
+        if self.check_volume_sequence(candles):
+            factors["volume"] = 5.0
+        confidence = calculate_confidence(factors, base=70.0)
+
+        anchors = [
+            {"t": str(ls.idx), "price": float(ls.price)},
+            {"t": str(h.idx), "price": float(h.price)},
+            {"t": str(rs.idx), "price": float(rs.price)},
+        ]
 
         return Detection(
             pattern="head_and_shoulders",
             direction="bullish",
-            confidence=85.0,
-            anchors=[{
-                "t": str(pivots[-1].idx),
-                "price": float(pivots[-1].price)
-            }, {
-                "t": str(pivots[-2].idx),
-                "price": float(pivots[-2].price)
-            }],
-            neckline={"t": str(pivots[-2].idx), "price": float(pivots[-2].price)},
-            target_price=measure_move,
-            stop_price=stop_price,
-            rr=rr,
-            invalidation_note="Neckline recaptured or new extreme breaks pattern"
+            confidence=confidence,
+            anchors=anchors,
+            neckline={"t": str(t2.idx), "price": float(neckline_price)},
+            target_price=float(target_price),
+            stop_price=float(stop_price),
+            rr=float(rr),
+            invalidation_note="Neckline recaptured or closes below right shoulder"
         )
