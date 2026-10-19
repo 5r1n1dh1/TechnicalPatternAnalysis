@@ -1,4 +1,5 @@
 package com.tpa.app.ui.symbol
+import androidx.compose.ui.text.font.FontWeight
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
