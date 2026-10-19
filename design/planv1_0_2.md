@@ -583,7 +583,7 @@ Screener, extra pattern families, thesis cards, live/intraday-by-default charts,
 
 | ID | Task | Priority | Wave | Status |
 |---|---|---|---|---|
-| T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [ ] |
+| T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [x] secrets set (4); variables deleted; rotation required at providers (Kaggle KGAT_ v2, Vercel token) — documented; not delayed per T-01 spec; multi-arg `gh variable delete` rejected (`accepts 1 arg(s), received 4`), deleted individually |
 | T-02 | Android dependency versions (verified coords) | P0 | W0 | [ ] |
 | T-03 | Server import root unification | P0 | W0 | [ ] |
 | T-04 | Server test suite green | P0 | W0 | [ ] |
