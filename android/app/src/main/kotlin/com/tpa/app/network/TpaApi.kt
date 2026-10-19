@@ -1,7 +1,27 @@
+package com.tpa.app.network
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import retrofit2.http.GET
+import retrofit2.http.Query
+
+interface TpaApi {
+    @GET("api/health") suspend fun health(): HealthResponse
+    @GET("api/search") suspend fun search(@Query("q") q: String? = null): List<SearchResult>
+    @GET("api/candles") suspend fun candles(@Query("symbol") s: String, @Query("interval") i: String, @Query("range") r: String): CandleResponse
+    @GET("api/patterns") suspend fun patterns(@Query("symbol") s: String, @Query("interval") i: String, @Query("range") r: String, @Query("pattern") p: String? = null): PatternsResponse
+    @GET("api/trend") suspend fun trend(@Query("symbol") s: String, @Query("interval") i: String, @Query("range") r: String): TrendResponse
+    @GET("api/technicals") suspend fun technicals(@Query("symbol") s: String): TechnicalResponse
+    @GET("api/fundamentals") suspend fun fundamentals(@Query("symbol") s: String): FundamentalsResponse
+    @GET("api/predictions") suspend fun predictions(@Query("symbol") s: String): PredictionsResponse
+    @GET("api/scan") suspend fun scan(@Query("page") page: Int = 1): ScanResponse
+    @GET("api/decision") suspend fun decision(@Query("symbol") s: String): DecisionResponse
+    @GET("api/tradeplan") suspend fun tradePlan(@Query("symbol") s: String, @Query("pattern") p: String? = null): TradePlanResponse
+    @GET("api/macro") suspend fun macro(): MacroResponse
+}
 
 @Serializable
-data class FundamentalsResponse(
+data class HealthResponse(
     val header: Header = Header(),
     val valuation: Valuation = Valuation(),
     val profitability: Profitability = Profitability(),
