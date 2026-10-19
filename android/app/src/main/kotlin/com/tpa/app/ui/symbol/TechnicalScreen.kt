@@ -1,6 +1,7 @@
 package com.tpa.app.ui.symbol
 import androidx.compose.ui.text.font.FontWeight
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -10,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpa.app.network.TechnicalResponse
@@ -30,20 +30,20 @@ fun TechnicalScreen(
         // Gauges row
         if (technical != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GaugeCard("RSI", "${technical.rsi.format(1)}")
-                GaugeCard("MACD", "${technical.macd.format(2)}")
-                GaugeCard("EMA20", "${technical.ema20.format(1)}")
-                GaugeCard("EMA50", "${technical.ema50.format(1)}")
-                GaugeCard("EMA200", "${technical.ema200.format(1)}")
+                GaugeCard("RSI", "${String.format("%.1f", technical.rsi)}")
+                GaugeCard("MACD", "${String.format("%.2f", technical.macd)}")
+                GaugeCard("EMA20", "${String.format("%.1f", technical.ema20)}")
+                GaugeCard("EMA50", "${String.format("%.1f", technical.ema50)}")
+                GaugeCard("EMA200", "${String.format("%.1f", technical.ema200)}")
             }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GaugeCard("ADX", "${technical.adx.format(1)}")
-                GaugeCard("+DI/−DI", "${technical.plus_di.format(0)} / ${technical.minus_di.format(0)}")
-                GaugeCard("ATR%", "${technical.atr_percent.format(2)}%")
-                GaugeCard("BB W", "${technical.bb_width.format(2)}")
-                GaugeCard("Del%", "${technical.delivery_percent.format(1)}%")
-                GaugeCard("RVOL", "${technical.rvol.format(2)}")
+                GaugeCard("ADX", "${String.format("%.1f", technical.adx)}")
+                GaugeCard("+DI/−DI", "${String.format("%.0f", technical.plus_di)} / ${String.format("%.0f", technical.minus_di)}")
+                GaugeCard("ATR%", "${String.format("%.2f", technical.atr_percent)}%")
+                GaugeCard("BB W", "${String.format("%.2f", technical.bb_width)}")
+                GaugeCard("Del%", "${String.format("%.1f", technical.delivery_percent)}%")
+                GaugeCard("RVOL", "${String.format("%.2f", technical.rvol)}")
             }
         }
 
@@ -100,7 +100,7 @@ fun TechnicalScreen(
             Text("Candle Chips", style = MaterialTheme.typography.titleSmall, color = Color(0xFFE2E8F0))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(technical.candle_chips) { chip ->
-                    Chip(label = chip.label, value = chip.value, indicator = chip.indicator)
+                    Chip(label = chip.label, value = chip.value.toString(), indicator = chip.indicator)
                 }
             }
         }
@@ -143,7 +143,7 @@ private fun VerdictCard(verdict: com.tpa.app.network.Verdict) {
             VerdictItem("B", verdict.bullish.toString(), Color(0xFF34D399))
             VerdictItem("Bear", verdict.bearish.toString(), Color(0xFFF87171))
             VerdictItem("Neu", verdict.neutral.toString(), Color(0xFFFBBF24))
-            VerdictItem("Str", verdict.strength, Color(0xFFE2E8F0))
+            VerdictItem("Str", verdict.strength.toString(), Color(0xFFE2E8F0))
         }
     }
 }

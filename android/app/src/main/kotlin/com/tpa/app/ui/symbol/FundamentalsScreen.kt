@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -197,10 +199,10 @@ private fun ShareholdingCard(s: Shareholding) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
         Text("Shareholding", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.SpaceEvenly) {
-            MetricCol("Promoter", s.promoter)
-            MetricCol("FII", s.fii)
-            MetricCol("DII", s.dii)
-            MetricCol("Public", s.public)
+            MetricCol("Promoter", s.promoter?.let { "%.1f%%".format(it) } ?: "—")
+            MetricCol("FII", s.fii?.let { "%.1f%%".format(it) } ?: "—")
+            MetricCol("DII", s.dii?.let { "%.1f%%".format(it) } ?: "—")
+            MetricCol("Public", s.public?.let { "%.1f%%".format(it) } ?: "—")
         }
     }
 }
