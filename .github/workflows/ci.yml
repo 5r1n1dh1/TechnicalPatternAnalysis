@@ -1,6 +1,27 @@
 name: CI
-on: [push, pull_request]
+# Secrets come from GitHub secrets (VERCEL_API_KEY, VERCEL_ORG_ID, VERCEL_PROJECT_ID, KAGGLE_API_KEY)
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r server/requirements.txt
+      - name: Run tests
+        working-directory: server
+        run: |
+          pytest server/tests -q 2>/dev/null || pytest tests -q
+
   android-build:
     runs-on: ubuntu-latest
     steps:
@@ -18,5 +39,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+  deploy:
+    needs: [server-tests]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+      - name: Pull Vercel environment (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_API_KEY }} --cwd server
+      - name: Deploy to production
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_API_KEY }} --cwd server

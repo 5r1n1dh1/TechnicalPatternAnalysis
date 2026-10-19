@@ -1,0 +1,31 @@
+name: Backfill
+# Secrets come from GitHub secrets (VERCEL_API_KEY, VERCEL_ORG_ID, VERCEL_PROJECT_ID, KAGGLE_API_KEY)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipeline/requirements.txt
+      - name: Run backfill
+        env:
+          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          KAGGLE_API_KEY: ${{ secrets.KAGGLE_API_KEY }}
+        run: |
+          python pipeline/backfill.py

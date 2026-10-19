@@ -1,0 +1,44 @@
+name: EOD Pipeline
+
+# Secrets come from GitHub secrets (VERCEL_API_KEY, VERCEL_ORG_ID, VERCEL_PROJECT_ID, KAGGLE_API_KEY)
+on:
+  schedule:
+    - cron: '30 13 * * 1-5'  # UTC Mon-Fri (19:00 IST)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipeline/requirements.txt
+      - name: Holiday guard
+        run: |
+          python pipeline/eod.py validate_date ${{ github.run_id }}
+      - name: Run pipeline
+        run: |
+          python pipeline/eod.py run
+      - name: Sanity check
+        run: |
+          python -m pytest pipeline/tests/test_eod.py -q
+      - name: Deploy to Vercel
+        env:
+          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          npx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_API_KEY }}" --cwd pipeline
+          npx vercel@latest deploy --prod --token="${{ secrets.VERCEL_API_KEY }}" --cwd pipeline
