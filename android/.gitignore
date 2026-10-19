@@ -1,8 +1,38 @@
-*.iml
-.gradle/
+# Gradle
 build/
+gradle/
+gradle-wrapper/
 local.properties
-.idea/
-captures/
-*.apk.idsig
-.kotlin/
+
+# Android
+*.iml
+*.iws
+*.idea
+*.class
+
+# MPAndroidChart
+build/
+
+# Generated files
+*.class
+*.ksp
+*.kotlin_jvm_optimized
+
+# Logs
+*.log
+
+# Backups
+*.backup
+
+# Test reports
+**/build/reports/**/*.xml
+**/build/reports/**/*.html
+
+# Local files
+local.properties
+build.gradle
+settings.gradle
+
+# Android Studio
+.DS_Store
+desktop.ini

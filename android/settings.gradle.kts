@@ -1,21 +1,4 @@
-rootProject.name = "technical-pattern-analysis"
-
 pluginManagement {
-    repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
@@ -24,3 +7,15 @@ dependencyResolutionManagement {
 }
 
 include(":app")
+enablePlugin("com.google.devtools.ksp") // For Kotlin Symbol Processing
+enablePlugin("com.android.application")
+enablePlugin("org.jetbrains.kotlin.plugin.compose")
+enablePlugin("org.jetbrains.kotlin.plugin.serialization")
+
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+}

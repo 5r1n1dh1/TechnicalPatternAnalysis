@@ -1,13 +1,15 @@
-// Root build configuration. Plugin versions live in gradle/libs.versions.toml.
+import org.gradle.api.Project
+import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.repository
+
 plugins {
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
-    alias(libs.plugins.kotlin.compose) apply false
-    alias(libs.plugins.kotlin.serialization) apply false
+    id("org.jetbrains.kotlin.gradle.plugin.serialization") version "1.9.22" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "1.9.22" apply false
+    id("com.android.application") version "7.4.2" apply false
+    id("com.google.devtools.ksp") version "1.9.22" apply false
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
@@ -15,4 +17,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "technical-pattern-analysis"
+rootProject.name = "MyInvestinmentAssistant"
