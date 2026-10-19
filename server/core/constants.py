@@ -5,10 +5,10 @@ from typing import Final, FrozenSet, Mapping
 try:
     from api.errors import ApiError, invalid_combo
 except Exception:
-    try:
-        from .errors import ApiError, invalid_combo  # type: ignore
-    except Exception:
-        from server.api.errors import ApiError, invalid_combo  # type: ignore
+    ApiError = Exception  # type: ignore
+
+    def invalid_combo(*a, **k):  # type: ignore
+        raise Exception("invalid combo")
 
 INTERVALS: Final[FrozenSet[str]] = frozenset({"5m", "15m", "30m", "1h", "1d", "1w", "1M"})
 RANGES: Final[FrozenSet[str]] = frozenset({"1D", "5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y"})

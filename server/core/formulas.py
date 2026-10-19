@@ -114,7 +114,7 @@ def compute_ratios(
     if invested_cap > 0 and ebit is not None:
         score.roic = (ebit * (1 - t)) / invested_cap
     # WACC spread (simplified)
-    from server.core.constants import TAX_RATE, G_SEC_10Y, ERP
+    from core.constants import TAX_RATE, G_SEC_10Y, ERP
     # Simplified WACC = Rf + beta*ERP (beta fallback 1.0)
     beta = 1.0
     if symbol_data and isinstance(symbol_data.get("beta"), (int, float)):

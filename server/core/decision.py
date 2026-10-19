@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 try:
-    from server.core.formulas import FundamentalScore
+    from core.formulas import FundamentalScore
 except Exception:
     FundamentalScore = None
 

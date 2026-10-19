@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 try:
     from api.candles import router as candles_router, CandleQuery, CandleResponse, validate_combo
 except Exception:
-    from server.api.candles import router as candles_router, CandleQuery, CandleResponse, validate_combo
+    from api.candles import router as candles_router, CandleQuery, CandleResponse, validate_combo
 
 def test_validate_matrix():
     """Test that invalid interval-range combinations raise errors."""

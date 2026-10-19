@@ -34,7 +34,7 @@ def test_predictions_stale():
     try:
         from core.ml_predict import StalePredictionsError
     except Exception:
-        from server.core.ml_predict import StalePredictionsError
+        from core.ml_predict import StalePredictionsError
     with pytest.raises(StalePredictionsError):
         # If real file is fresh, this won't trigger; test verifies exception class exists
         raise StalePredictionsError("stale")
