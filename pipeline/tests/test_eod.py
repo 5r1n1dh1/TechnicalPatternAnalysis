@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import pytest
+from unittest.mock import patch
 from pipeline.eod import fetch_bhavcopy, fetch_yahoo_eod, merge_eod, validate_date, run
 
 # Test validate_date function
@@ -54,9 +55,20 @@ def test_merge_eod():
     })
     
     # Merge should work without discrepancies
-    merged = merge_eod("14102026", ["1", "2"])
+    yahoo_by_symbol = {row['symbol']: row for row in yahoo_data.to_dict('records')}
+
+    def fake_bhavcopy(date):
+        return nse_data.copy()
+
+    def fake_yahoo(symbol, date):
+        row = yahoo_by_symbol[symbol]
+        return pd.DataFrame([{k.lower(): v for k, v in row.items() if k in ('Open', 'High', 'Low', 'Close', 'Volume')}])
+
+    with patch('pipeline.eod.fetch_bhavcopy', side_effect=fake_bhavcopy), \
+         patch('pipeline.eod.fetch_yahoo_eod', side_effect=fake_yahoo):
+        merged = merge_eod("14102026", ["1", "2"])
     assert len(merged) == 2
-    assert merged['close'].equals(nse_data['CLOSE'])
+    assert list(merged['close']) == list(nse_data['CLOSE'])
 
 def test_merge_eod_price_discrepancy():
     """Test that merge_eod logs a warning for price discrepancy."""
@@ -95,7 +107,20 @@ def test_merge_eod_price_discrepancy():
     
     # Capture output
     captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
+
+    def fake_bhavcopy(date):
+        return nse_data.copy()
+
+    def fake_yahoo(symbol, date):
+        row = {
+            'Open': 104, 'High': 114, 'Low': 84, 'Close': 104, 'Volume': 1000,
+            'adjOpen': 104, 'adjHigh': 114, 'adjLow': 84, 'adjClose': 104
+        }
+        return pd.DataFrame([row])
+
+    with redirect_stdout(captured_output), \
+         patch('pipeline.eod.fetch_bhavcopy', side_effect=fake_bhavcopy), \
+         patch('pipeline.eod.fetch_yahoo_eod', side_effect=fake_yahoo):
         merged = merge_eod("14102026", ["1"])
     
     # Check that warning was printed

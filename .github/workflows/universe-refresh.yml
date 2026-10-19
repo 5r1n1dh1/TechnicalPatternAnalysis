@@ -18,7 +18,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
@@ -27,15 +27,7 @@ jobs:
 
       - name: Refresh universe
         run: |
-          python -c "
-import json, os
-# minimal stub universe
-universe = {'symbols': ['^BSESN', 'NIFTY50'], 'updated': '$(date -Iseconds)'}
-os.makedirs('server/data', exist_ok=True)
-with open('server/data/symbols.json', 'w') as f:
-    json.dump(universe, f, indent=2)
-print('done')
-"
+          python -m pipeline.universe
 
       - name: Commit changes
         run: |

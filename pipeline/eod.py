@@ -1,6 +1,6 @@
 # EOD data processing
-
-import os
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 from datetime import datetime, timedelta
 
@@ -126,54 +126,85 @@ def fetch_yahoo_eod(symbol: str, date: str):
         raise ValueError(f"Failed to fetch Yahoo data for {symbol} on {date}: {str(e)}")
 
 
+def _normalize_df(df):
+    if df is None or df.empty:
+        return df
+    rename_map = {}
+    for c in df.columns:
+        lc = str(c).lower()
+        if lc in ("open", "high", "low", "close", "volume") and str(c) != lc:
+            rename_map[c] = lc
+    if rename_map:
+        df = df.rename(columns=rename_map)
+    return df
+
+
 def merge_eod(date: str, symbols: list):
     nse_df = fetch_bhavcopy(date)
-    merged_df = pd.DataFrame()
     ymd = datetime.strptime(date, "%d%m%Y").strftime("%Y-%m-%d")
+    nse_by_symbol = {}
+    if nse_df is not None and not nse_df.empty and "SC_CODE" in nse_df.columns:
+        for _, row in nse_df.iterrows():
+            key = str(row.get("SC_CODE", "")).strip().upper()
+            if key:
+                nse_by_symbol[key] = row
 
+    rows = []
     for symbol in symbols:
         try:
-            yahoo_df = fetch_yahoo_eod(symbol, date)
-            if nse_df.empty:
-                rec = yahoo_df.copy()
-                rec["SC_CODE"] = symbol
-                rec["date"] = ymd
-                merged_df = pd.concat([merged_df, rec], ignore_index=True)
+            yahoo_df = _normalize_df(fetch_yahoo_eod(symbol, date))
+            if yahoo_df is None or yahoo_df.empty:
                 continue
+            yrow = yahoo_df.iloc[-1]
+            sym_key = str(symbol).strip().upper()
+            nse_row = nse_by_symbol.get(sym_key)
 
-            # Try to merge by symbol code/name - simplified
-            merged = yahoo_df.copy()
-            merged["SC_CODE"] = symbol
-            merged["date"] = ymd
-            merged["open_nse"] = nse_df["OPEN"].iloc[0] if "OPEN" in nse_df else np.nan
-            merged["close_nse"] = nse_df["CLOSE"].iloc[0] if "CLOSE" in nse_df else np.nan
-            nse_close = merged["close_nse"].iloc[0] if not merged.empty else np.nan
-            yahoo_close = merged["close"].iloc[0] if not merged.empty else np.nan
+            open_ = yrow.get("open") if "open" in yrow.index else np.nan
+            high_ = yrow.get("high") if "high" in yrow.index else np.nan
+            low_ = yrow.get("low") if "low" in yrow.index else np.nan
+            close_ = yrow.get("close") if "close" in yrow.index else np.nan
+            vol = yrow.get("volume") if "volume" in yrow.index else np.nan
 
-            if pd.notna(nse_close) and pd.notna(yahoo_close) and nse_close > 0:
-                diff = abs(nse_close - yahoo_close) / nse_close
-                if diff > 0.005:
-                    raise ValueError(f"Price discrepancy breach > 0.5% for {symbol} on {date}: diff={diff:.4%}")
+            if nse_row is not None:
+                nse_close_raw = nse_row.get("CLOSE") if hasattr(nse_row, "get") else np.nan
+                y_close_raw = close_
+                nse_close = pd.to_numeric(nse_close_raw, errors="coerce")
+                y_close = pd.to_numeric(y_close_raw, errors="coerce")
+                if pd.notna(nse_close) and pd.notna(y_close) and float(nse_close) > 0:
+                    diff = abs(float(nse_close) - float(y_close)) / float(nse_close)
+                    if diff > 0.005:
+                        print(f"Warning: Price discrepancy for {symbol} on {ymd}: diff={diff:.4%}")
+                        continue
+                open_ = nse_row.get("OPEN") if hasattr(nse_row, "get") and pd.notna(pd.to_numeric(nse_row.get("OPEN"), errors="coerce")) else open_
+                high_ = nse_row.get("HIGH") if hasattr(nse_row, "get") and pd.notna(pd.to_numeric(nse_row.get("HIGH"), errors="coerce")) else high_
+                low_ = nse_row.get("LOW") if hasattr(nse_row, "get") and pd.notna(pd.to_numeric(nse_row.get("LOW"), errors="coerce")) else low_
+                close_ = nse_row.get("CLOSE") if hasattr(nse_row, "get") else close_
+                vol = nse_row.get("VOLUME") if hasattr(nse_row, "get") else vol
 
-            # Prefer NSE where available
-            merged["open"] = merged["open_nse"].fillna(merged["open"])
-            merged["high"] = merged.get("high_nse", merged["high"])
-            merged["low"] = merged.get("low_nse", merged["low"])
-            merged["close"] = merged["close_nse"].fillna(merged["close"])
-            merged["volume"] = merged["volume_nse"].fillna(merged["volume"]) if "volume_nse" in merged else merged["volume"]
-            merged["adjOpen"] = merged["open"]
-            merged["adjHigh"] = merged["high"]
-            merged["adjLow"] = merged["low"]
-            merged["adjClose"] = merged["close"]
+            open_ = pd.to_numeric(open_, errors="coerce")
+            high_ = pd.to_numeric(high_, errors="coerce")
+            low_ = pd.to_numeric(low_, errors="coerce")
+            close_ = pd.to_numeric(close_, errors="coerce")
+            vol = pd.to_numeric(vol, errors="coerce")
 
-            keep = ["SC_CODE", "date", "open", "high", "low", "close", "volume", "adjOpen", "adjHigh", "adjLow", "adjClose"]
-            merged = merged[[c for c in keep if c in merged.columns]]
-            merged_df = pd.concat([merged_df, merged], ignore_index=True)
+            rows.append({
+                "SC_CODE": sym_key,
+                "date": ymd,
+                "open": open_,
+                "high": high_,
+                "low": low_,
+                "close": close_,
+                "volume": vol,
+                "adjOpen": open_,
+                "adjHigh": high_,
+                "adjLow": low_,
+                "adjClose": close_,
+            })
         except Exception as e:
             print(f"Error processing {symbol} on {date}: {str(e)}")
             continue
 
-    return merged_df
+    return pd.DataFrame(rows)
 
 
 def validate_date(date: str):
