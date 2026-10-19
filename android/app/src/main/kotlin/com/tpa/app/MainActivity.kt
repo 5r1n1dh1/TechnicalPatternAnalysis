@@ -1,44 +1,58 @@
 package com.tpa.app
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.tpa.app.ui.symbol.SymbolScreen
 import com.tpa.app.ui.symbol.ChartScreen
 import com.tpa.app.ui.symbol.ChartViewModel
 import com.tpa.app.network.NetworkModule
-import com.tpa.app.ui.chart.IntervalDropdown
-import com.tpa.app.ui.chart.RangeDropdown
-import com.tpa.app.ui.chart.PatternDropdown
 
 @Composable
-fun Greeting(name: String, onBack: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        ChartScreen(
-            viewModel = ChartViewModel(NetworkModule.provideApi()),
-            onBack = onBack
-        )
+fun MainActivity() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            var selectedTab by remember { mutableStateOf(1) } // 0=Fundamentals, 1=Charts+Decision, 2=Technicals
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Navigation tabs
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    listOf("Fundamentals", "Charts", "Technicals").forEachIndexed { index, label ->
+                        TextButton(
+                            onClick = { selectedTab = index },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                label,
+                                color = if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                // Content
+                when (selectedTab) {
+                    0 -> FundamentalsPlaceholder()
+                    1 -> ChartScreen(
+                        viewModel = ChartViewModel(NetworkModule.provideApi()),
+                        onBack = {}
+                    )
+                    2 -> TechnicalsPlaceholder()
+                    else -> {}
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun App() {
-    MaterialTheme {
-        Greeting("AAPL", onBack = { /* Handle back */ })
+private fun FundamentalsPlaceholder() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text("Fundamentals — M6")
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun DefaultPreview() {
-    MaterialTheme {
-        App()
+private fun TechnicalsPlaceholder() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text("Technicals — M4")
     }
 }

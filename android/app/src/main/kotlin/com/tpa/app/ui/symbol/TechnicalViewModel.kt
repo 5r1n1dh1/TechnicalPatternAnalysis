@@ -24,7 +24,7 @@ class TechnicalViewModel(private val api: TpaApi) : ViewModel() {
             _loading.value = true
             try {
                 _technical.value = api.getTechnical(symbol).body()
-                _decision.value = api.getDecision(symbol).body()
+                _decision.value = api.getDecision(symbol)
             } catch (_: Exception) { }
             _loading.value = false
         }

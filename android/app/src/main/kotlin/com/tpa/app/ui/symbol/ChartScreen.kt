@@ -42,6 +42,8 @@ import com.tpa.app.network.Candle
 import com.tpa.app.network.Interval
 import com.tpa.app.network.Range
 import com.tpa.app.ui.chart.PatternOverlayRenderer
+import com.tpa.app.ui.theme.glassSurface
+import com.tpa.app.network.NetworkModule
 import com.tpa.app.ui.chart.DetectionChip
 import com.tpa.app.ui.chart.PatternOverlay
 import com.tpa.app.ui.chart.AnchorPoint
@@ -54,6 +56,7 @@ fun ChartScreen(
 ) {
     val context = LocalContext.current
     val state = viewModel.state.value
+    var selectedTab by remember { mutableStateOf(1) } // 0=Fundamentals, 1=Charts, 2=Technicals
     
     if (state.isLoading) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -79,8 +82,35 @@ fun ChartScreen(
             )
             
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Chart container
+
+            // Tabs
+            Row(modifier = Modifier.fillMaxWidth()) {
+                listOf("Fundamentals", "Charts", "Technicals").forEachIndexed { index, label ->
+                    TextButton(
+                        onClick = { selectedTab = index },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            label,
+                            color = if (selectedTab == index) Color(0xFF34D399) else Color(0xFF94A3B8)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (selectedTab == 2) {
+                val techVm = remember { TechnicalViewModel(NetworkModule.provideApi() as TpaApi) }
+                val tech by techVm.technical.collectAsState(initial = null)
+                val dec by techVm.decision.collectAsState(initial = null)
+                LaunchedEffect(state.symbol) { techVm.load(state.symbol) }
+                TechnicalScreen(technical = tech, decision = dec, modifier = Modifier.weight(1f))
+            } else if (selectedTab == 0) {
+                Text("Fundamentals", color = Color.White)
+            } else {
+                // Chart container
+            {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -296,6 +326,29 @@ fun ChartScreen(
                 }
             }
 
+            // Bottom sticky decision overlay / unavailable
+            Spacer(modifier = Modifier.height(4.dp))
+            val decVm = remember { TechnicalViewModel(NetworkModule.provideApi() as TpaApi) }
+            val decision by decVm.decision.collectAsState(initial = null)
+            LaunchedEffect(state.symbol) { decVm.load(state.symbol) }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .glassSurface(elevation = 4f)
+                    .padding(10.dp)
+            ) {
+                if (decision != null) {
+                    DecisionCard(decision = decision!!)
+                } else {
+                    Text(
+                        text = "Data unavailable — EOD sync pending",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            }
         }
     }
 }

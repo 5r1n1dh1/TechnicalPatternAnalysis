@@ -45,7 +45,7 @@ interface TpaApi {
     @GET("api/decision")
     suspend fun getDecision(
         @Query("symbol") symbol: String
-    ): Response<DecisionResponse>
+    ): DecisionResponse
 }
 
 data class CandleResponse(
@@ -162,5 +162,6 @@ data class ComponentScore(
 
 data class RedFlag(
     val title: String,
-    val detail: String
+    val detail: String,
+    val severity: String = "HIGH"
 )
