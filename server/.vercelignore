@@ -1,7 +1,8 @@
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*.so
+*.egg
+*.egg-info
 .Python
 env/
 venv/
@@ -10,3 +11,11 @@ tests/
 *.log
 .cache/
 .git/
+.pytest_cache/
+.coverage
+*.parquet
+pipeline/
+android/
+database/
+design/
+.github/

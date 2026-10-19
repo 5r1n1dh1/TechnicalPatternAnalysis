@@ -1,4 +1,4 @@
-"""Single Vercel entrypoint (M0 skeleton). No yfinance/pandas at module level (cold start)."""
+"""Single Vercel entrypoint. No yfinance/pandas at module level (cold start)."""
 
 import json
 from pathlib import Path
@@ -7,10 +7,7 @@ from typing import Any, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from api.errors import ApiError, ErrorResponse
-import resample
-import search
-import candles
+from server.api.errors import ApiError, ErrorResponse
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
@@ -49,12 +46,33 @@ def create_app() -> FastAPI:
         return {"status": "ok", "dataAsOf": _data_as_of()}
     
     # Mount routers
+    from server.api import (
+        candles,
+        decision,
+        fundamentals,
+        macro,
+        patterns,
+        predictions,
+        resample,
+        scan,
+        search,
+        technicals,
+        tradeplan,
+        trend,
+    )
+
     app.include_router(search.router, prefix="/api")
     app.include_router(candles.router, prefix="/api")
-    from resample import router as resample_router
-    app.include_router(resample_router, prefix="/api")
-    from decision import router as decision_router
-    app.include_router(decision_router, prefix="/api")
+    app.include_router(resample.router, prefix="/api")
+    app.include_router(decision.router, prefix="/api")
+    app.include_router(predictions.router, prefix="/api")
+    app.include_router(scan.router, prefix="/api")
+    app.include_router(technicals.router, prefix="/api")
+    app.include_router(patterns.router, prefix="/api")
+    app.include_router(trend.router, prefix="/api")
+    app.include_router(fundamentals.router, prefix="/api")
+    app.include_router(tradeplan.router, prefix="/api")
+    app.include_router(macro.router, prefix="/api")
 
     return app
 

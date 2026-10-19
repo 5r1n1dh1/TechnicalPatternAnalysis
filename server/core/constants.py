@@ -2,7 +2,10 @@
 
 from typing import Final, FrozenSet, Mapping
 
-from api.errors import ApiError, invalid_combo
+try:
+    from server.api.errors import ApiError, invalid_combo
+except Exception:
+    from api.errors import ApiError, invalid_combo
 
 INTERVALS: Final[FrozenSet[str]] = frozenset({"5m", "15m", "30m", "1h", "1d", "1w", "1M"})
 RANGES: Final[FrozenSet[str]] = frozenset({"1D", "5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y"})
