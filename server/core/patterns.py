@@ -65,7 +65,7 @@ def find_pivots(
     high: np.ndarray,
     low: np.ndarray,
     atr: np.ndarray,
-    prominence_mult: float = 1.5,
+    prominence_mult: float = 0.1,
     use_smoothing: bool = True,
     window_size: Optional[int] = None,
 ) -> List[SwingPivot]:
@@ -278,7 +278,9 @@ def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
         low = candles['low'].values
         close = candles['close'].values
         atr_vals = candles['atr'].values if 'atr' in candles.columns else np.ones_like(close)
-        pivots = find_pivots(close, high, low, atr_vals, use_smoothing=True)
+        pivots = find_pivots(close, high, low, atr_vals, use_smoothing=True, prominence_mult=0.5)
+        if len(pivots) < 3:
+            pivots = find_pivots(close, high, low, atr_vals, use_smoothing=False, prominence_mult=0.5)
     except Exception:
         pivots = []
 

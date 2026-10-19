@@ -6,7 +6,7 @@ from pathlib import Path
 router = APIRouter()
 _DATA = Path(__file__).resolve().parents[1] / "data" / "scan.json"
 
-@router.get("/api/scan")
+@router.get("/scan")
 def get_scan(page: int = 1):
     if not _DATA.exists():
         return {"asOf": None, "hits": [], "page": page}

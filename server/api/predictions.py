@@ -42,7 +42,7 @@ def _load():
         _cache = {"stale": True, "message": str(e)}
     return _cache
 
-@router.get("/api/predictions")
+@router.get("/predictions")
 def get_predictions(symbol: Optional[str] = None):
     data = _load()
     if isinstance(data, dict) and data.get("stale"):
