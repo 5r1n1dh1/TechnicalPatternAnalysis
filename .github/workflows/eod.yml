@@ -27,11 +27,7 @@ jobs:
 
       - name: Holiday guard
         run: |
-          python -c "
-import sys; sys.path.insert(0, '.')
-from pipeline import eod
-print(eod.validate_date(eod.datetime.now().strftime('%d%m%Y')))
-"
+          python -c 'import sys; sys.path.insert(0, "."); from pipeline import eod; print(eod.validate_date(eod.datetime.now().strftime("%d%m%Y")))'
 
       - name: Run pipeline
         run: |

@@ -15,6 +15,7 @@ jobs:
         with: { node-version: '20' }
       - run: npm i -g vercel@latest
       - name: Deploy server
+        id: deploy
         env:
           VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
         run: npx vercel@latest deploy --prod --token=$VERCEL_API_KEY --cwd server
@@ -25,7 +26,6 @@ jobs:
           curl -sf "$URL/api/health" || echo "SMOKE FAIL: /api/health"
           echo "Smoke test: $URL/api/search?q=RELIANCE"
           curl -sf "$URL/api/search?q=RELIANCE" || echo "SMOKE FAIL: /api/search"
-    id: deploy
   smoke-test:
     needs: deploy
     runs-on: ubuntu-latest
