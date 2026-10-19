@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import pandas as pd, numpy as np
-from server.core import indicators, trend, s_r, candlestick_summary, structure
+from core import indicators, trend, s_r, candlestick_summary, structure
 
 router = APIRouter(tags=["technicals"])
 

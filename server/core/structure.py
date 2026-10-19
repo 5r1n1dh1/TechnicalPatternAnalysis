@@ -8,7 +8,11 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy.signal import find_peaks
+try:
+    from scipy.signal import find_peaks
+except Exception:
+    def find_peaks(*args, **kwargs):
+        raise ImportError("scipy is required")
 
 
 class StructureState(str, Enum):

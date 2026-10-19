@@ -6,8 +6,12 @@ from pydantic import BaseModel
 from typing import Optional
 import pandas as pd
 
-from server.core.resample import resample_daily_to_interval, resample_daily_to_range
-from server.core.constants import validate_combo
+try:
+    from core.resample import resample_daily_to_interval, resample_daily_to_range
+    from core.constants import validate_combo
+except Exception:
+    from api.core.resample import resample_daily_to_interval, resample_daily_to_range  # type: ignore
+    from api.core.constants import validate_combo  # type: ignore
 
 router = APIRouter()
 
@@ -106,5 +110,6 @@ def get_resampled_data(
             "source": "yfinance",
             "candles": resampled.to_dict(orient='records')
         }
-        
         return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

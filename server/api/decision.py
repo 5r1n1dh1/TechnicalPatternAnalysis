@@ -4,9 +4,9 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from server.core.formulas import compute_ratios, FundamentalScore
-from server.core.valuation import compute_valuation, ValuationVerdict
-from server.core.decision import (
+from core.formulas import compute_ratios, FundamentalScore
+from core.valuation import compute_valuation, ValuationVerdict
+from core.decision import (
     compute_decision,
     DecisionResponse,
     RedFlagsEngine,
@@ -14,7 +14,7 @@ from server.core.decision import (
     PatternContext,
     MLOutlook,
 )
-from server.core.constants import TIMEZONE
+from core.constants import TIMEZONE
 
 router = APIRouter(prefix="/api", tags=["decision"])
 

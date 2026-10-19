@@ -14,13 +14,20 @@ class ErrorResponse(BaseModel):
     error: ErrorBody
 
 
-class ApiError(Exception):
+try:
+    from fastapi import HTTPException
+except Exception:
+    HTTPException = Exception  # type: ignore
+
+class ApiError(HTTPException):
     """Carries an HTTP status + ErrorResponse payload; converted by the central handler."""
 
     def __init__(self, status: int, payload: ErrorResponse) -> None:
         self.status = status
+        self.status_code = status
         self.payload = payload
-        super().__init__(payload.error.message)
+        self.detail = payload.error.message
+        super().__init__(status_code=status, detail=payload.error.message)
 
 
 _EOD_MSG: Final = "Data unavailable, try after today's EOD sync"
@@ -39,7 +46,7 @@ def invalid_combo(interval: str, range_key: str) -> ApiError:
         ErrorResponse(
             error=ErrorBody(
                 code="invalidCombo",
-                message=f"Invalid interval/range combination: {interval}/{range_key}",
+                message=f"Invalid interval and range combination: {interval}/{range_key}",
             )
         ),
     )

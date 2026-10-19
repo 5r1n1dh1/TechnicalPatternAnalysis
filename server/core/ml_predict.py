@@ -1,7 +1,7 @@
 """ML prediction loader (CI-only train; server reads baked JSON)."""
 import os, json
 from datetime import datetime, timezone, timedelta
-from server.core.constants import PREDICTIONS_MAX_AGE_HRS
+from core.constants import PREDICTIONS_MAX_AGE_HRS
 
 PRED_FILE = "server/data/predictions.json"
 

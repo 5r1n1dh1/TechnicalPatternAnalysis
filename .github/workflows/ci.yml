@@ -20,7 +20,7 @@ jobs:
       - name: Run tests
         working-directory: server
         run: |
-          pytest server/tests -q 2>/dev/null || pytest tests -q
+          pytest tests -q
 
   android-build:
     runs-on: ubuntu-latest

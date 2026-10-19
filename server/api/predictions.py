@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 import json, os
-from server.core.ml_predict import load_predictions, StalePredictionsError
+from core.ml_predict import load_predictions, StalePredictionsError
 
 router = APIRouter()
 

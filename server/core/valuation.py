@@ -9,7 +9,7 @@ try:
 except Exception:
     np = None  # type: ignore
 
-from server.core.constants import (
+from core.constants import (
     G_SEC_10Y, ERP, TAX_RATE,
     WACC_BULL_G, WACC_BASE_G, WACC_BEAR_G,
     MO_QUALITY_TIERS,

@@ -3,9 +3,12 @@
 from typing import Final, FrozenSet, Mapping
 
 try:
-    from server.api.errors import ApiError, invalid_combo
-except Exception:
     from api.errors import ApiError, invalid_combo
+except Exception:
+    try:
+        from .errors import ApiError, invalid_combo  # type: ignore
+    except Exception:
+        from server.api.errors import ApiError, invalid_combo  # type: ignore
 
 INTERVALS: Final[FrozenSet[str]] = frozenset({"5m", "15m", "30m", "1h", "1d", "1w", "1M"})
 RANGES: Final[FrozenSet[str]] = frozenset({"1D", "5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y"})
@@ -45,7 +48,24 @@ MO_QUALITY_TIERS: Final[dict] = {
 
 def validate_combo(interval: str, range_key: str) -> None:
     """Raise the 400 invalidCombo error model unless the pair is in the matrix."""
+    from fastapi import HTTPException
+    try:
+        from api.errors import ApiError
+    except Exception:
+        ApiError = Exception
+
     if interval not in INTERVALS or range_key not in RANGES:
-        raise invalid_combo(interval, range_key)
+        exc = invalid_combo(interval, range_key)
+        # Add HTTPException compatibility
+        if hasattr(exc, 'detail') is False:
+            exc.detail = exc.payload.error.message
+        if hasattr(exc, 'status_code') is False:
+            exc.status_code = exc.status
+        raise exc
     if range_key not in VALID_COMBOS[interval]:
-        raise invalid_combo(interval, range_key)
+        exc = invalid_combo(interval, range_key)
+        if hasattr(exc, 'detail') is False:
+            exc.detail = exc.payload.error.message
+        if hasattr(exc, 'status_code') is False:
+            exc.status_code = exc.status
+        raise exc

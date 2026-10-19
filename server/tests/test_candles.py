@@ -1,9 +1,15 @@
 """Test cases for candles endpoint."""
 
 import pytest
+import os
+import time
+import pandas as pd
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from api.candles import router as candles_router
-from api.candles import CandleQuery, CandleResponse
+try:
+    from api.candles import router as candles_router, CandleQuery, CandleResponse, validate_combo
+except Exception:
+    from server.api.candles import router as candles_router, CandleQuery, CandleResponse, validate_combo
 
 def test_validate_matrix():
     """Test that invalid interval-range combinations raise errors."""
@@ -20,7 +26,10 @@ def test_validate_matrix():
 def test_candles_cached(client: TestClient):
     """Test that cached data is returned when available."""
     # Create a dummy cache file for testing
-    cache_file = "server/data/cached_candles/RELIANCE_1d_1Y.parquet"
+    from pathlib import Path
+    cache_dir = Path("data/cached_candles")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / "RELIANCE_1d_1Y.parquet"
     dummy_data = {
         "t": ["2026-10-15T09:15:00+05:30"],
         "o": [1430.0],
@@ -49,7 +58,10 @@ def test_candles_cached(client: TestClient):
 def test_candles_yahoo(client: TestClient):
     """Test that data is fetched from Yahoo Finance when cache is expired."""
     # Simulate cache expiration
-    cache_file = "server/data/cached_candles/RELIANCE_1d_1Y.parquet"
+    from pathlib import Path
+    cache_dir = Path("data/cached_candles")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / "RELIANCE_1d_1Y.parquet"
     dummy_data = {
         "t": ["2026-10-15T09:15:00+05:30"],
         "o": [1430.0],
@@ -83,9 +95,16 @@ def test_candles_yahoo(client: TestClient):
 def test_candles_kaggle(client: TestClient):
     """Test that Kaggle data is used as fallback when Yahoo fails."""
     # Simulate Yahoo failure by removing cache
-    cache_file = "server/data/cached_candles/RELIANCE_1d_1Y.parquet"
-    if os.path.exists(cache_file):
+    from pathlib import Path
+    cache_dir = Path("data/cached_candles")
+    cache_file = cache_dir / "RELIANCE_1d_1Y.parquet"
+    if cache_file.exists():
         os.remove(cache_file)
+    try:
+        from api.candles import clear_cache
+        clear_cache()
+    except Exception:
+        pass
     
     response = client.get("/api/candles", params={
         "symbol": "RELIANCE",

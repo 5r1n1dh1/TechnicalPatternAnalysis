@@ -1,6 +1,6 @@
 """Predictions endpoint schema + stale tests."""
 import pytest, json, os
-from server.api.predictions import router
+from api.predictions import router
 from fastapi.testclient import TestClient
 
 client = TestClient(router)

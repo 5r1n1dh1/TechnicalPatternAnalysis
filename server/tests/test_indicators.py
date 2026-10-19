@@ -1,6 +1,6 @@
 """Indicators golden-test — M4."""
 import pandas as pd, numpy as np, json
-from server.core import indicators
+from core import indicators
 
 def test_rsi_macd_adx_bollinger_30bar():
     df = pd.read_csv("tests/fixtures/golden/bars30.csv")

@@ -7,7 +7,10 @@ from typing import Any, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from server.api.errors import ApiError, ErrorResponse
+try:
+    from api.errors import ApiError, ErrorResponse
+except Exception:
+    from .errors import ApiError, ErrorResponse  # type: ignore
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
@@ -46,7 +49,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "dataAsOf": _data_as_of()}
     
     # Mount routers
-    from server.api import (
+    from api import (
         candles,
         decision,
         fundamentals,

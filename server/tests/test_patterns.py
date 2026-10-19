@@ -1,7 +1,7 @@
 """Test pattern detection with synthetic fixtures."""
 import os
 import pandas as pd
-from server.core import patterns
+from core import patterns
 
 
 def test_positive_fixtures():
