@@ -16,12 +16,16 @@ def test_search_empty(client: TestClient):
     assert sorted(sectors) == sorted(sectors)
 
 def test_search_exact(client: TestClient):
-    """Test search with exact match."""
+    """Test search with exact match.
+    Endpoint returns both symbol and name substring matches (e.g. RPOWER -> "Reliance Power").
+    Assert that exact symbol match exists and is ranked first.
+    """
     response = client.get("/api/search?q=RELIANCE")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    assert len(data) >= 1
     assert data[0]["symbol"] == "RELIANCE"
+    assert any(item["symbol"] == "RELIANCE" for item in data)
 
 def test_search_fuzzy(client: TestClient):
     """Test search with fuzzy matching."""

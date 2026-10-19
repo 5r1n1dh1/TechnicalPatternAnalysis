@@ -17,6 +17,7 @@ def test_positive_fixtures():
         "bull_flag_pos.csv",
         "bear_flag_pos.csv",
     ]
+    # TODO: Only hs_pos.csv is calibrated reliably in CI (scipy smoothing differences).
     # Skip fixtures not yet calibrated by detector (v1.0.2 T-06 partial — H&S passes, others deferred to calibration sprint)
     skip_files = {"ihs_pos.csv", "noisy_flat.csv", "bull_flag_pos.csv", "bear_flag_pos.csv", "cup_pos.csv", "cup_neg.csv", "double_top_pos.csv", "double_bottom_pos.csv", "double_neg.csv", "flag_neg.csv", "triple_top_pos.csv", "triple_bottom_pos.csv"}
     for fname in positive_files:
@@ -40,6 +41,7 @@ def test_negative_fixtures():
         "flag_neg.csv",
         "noisy_flat.csv",
     ]
+    # TODO: Same as positives — negative fixtures are calibrated in the same sprint.
     # Skip fixtures not yet calibrated by detector (v1.0.2 T-06 partial)
     skip_files = {"noisy_flat.csv", "cup_neg.csv", "double_neg.csv", "flag_neg.csv"}
     for fname in negative_files:

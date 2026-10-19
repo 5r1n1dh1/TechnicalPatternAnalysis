@@ -7,8 +7,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.tpa.app.BuildConfig
 import com.tpa.app.network.TpaApi
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.KotlinSerializationConverterFactory
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.create
 
 object NetworkModule {
@@ -20,7 +22,7 @@ object NetworkModule {
         return remember(context, baseUrl) {
             Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .addConverterFactory(KotlinSerializationConverterFactory.create())
+                .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
                 .build()
                 .create(TpaApi::class.java)
         }

@@ -1,7 +1,7 @@
-"""Shared bar loader for endpoints (no module-level yfinance import)."""
-import pandas as pd
+"""Shared bar loader for endpoints (no module-level yfinance/pandas import)."""
 
 def load_bars(symbol: str, interval: str = "1d", range_str: str = "1Y"):
+    import pandas as pd
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol + ".NS" if not symbol.endswith((".NS", ".BO")) else symbol)

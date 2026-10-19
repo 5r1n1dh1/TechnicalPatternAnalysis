@@ -44,7 +44,7 @@ fun TradePlanCard(
             containerColor = backgroundColor,
             contentColor = textPrimary
         ),
-        elevation = 4f,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(
