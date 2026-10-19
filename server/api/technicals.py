@@ -6,7 +6,7 @@ from typing import List, Optional
 import pandas as pd, numpy as np
 from server.core import indicators, trend, s_r, candlestick_summary, structure
 
-router = APIRouter(prefix="/api", tags=["technicals"])
+router = APIRouter(tags=["technicals"])
 
 class SRItem(BaseModel):
     price: float
