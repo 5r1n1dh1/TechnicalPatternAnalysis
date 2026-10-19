@@ -6,18 +6,12 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 
-import numpy as np
-import pandas as pd
-try:
-    from scipy.signal import find_peaks
-except Exception:
-    def find_peaks(*args, **kwargs):
-        raise ImportError("scipy is required")
-
 try:
     from .structure import atr
 except Exception:
     def atr(high, low, close, period=14):
+        import numpy as np
+        import pandas as pd
         prev_close = np.roll(close, 1)
         prev_close[0] = close[0] if len(close) > 0 else 0
         tr = np.maximum(high - low, np.maximum(np.abs(high - prev_close), np.abs(low - prev_close)))
@@ -34,6 +28,7 @@ class SwingPivot:
 
 
 def sma(data: np.ndarray, period: int) -> np.ndarray:
+    import numpy as np
     """Simple moving average."""
     if len(data) == 0:
         return data
@@ -83,6 +78,8 @@ def find_pivots(
     Returns:
         List of SwingPivot objects in chronological order.
     """
+    import numpy as np
+    from scipy.signal import find_peaks
     # Apply smoothing if requested
     if use_smoothing and len(high) > 4:
         high_smooth = sma5_smooth(high)
@@ -211,6 +208,7 @@ class VolumeValidityMixin:
     """Mixin for volume sequence validity."""
 
     def check_volume_sequence(self, candles: pd.DataFrame, pattern_span: slice = None) -> bool:
+        import numpy as np
         """Check volume contraction inside pattern + expansion on break.
 
         Volume should contract during pattern formation and expand on breakout.
@@ -247,6 +245,7 @@ class VolumeValidityMixin:
 
 def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
     """Detect all patterns in candle data."""
+    import numpy as np
     from .detectors.head_shoulders import HeadShouldersDetector
     from .detectors.cup_handle import CupHandleDetector
     from .detectors.double_triple import DoubleTripleDetector

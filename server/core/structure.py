@@ -6,13 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
-import numpy as np
-import pandas as pd
-try:
-    from scipy.signal import find_peaks
-except Exception:
-    def find_peaks(*args, **kwargs):
-        raise ImportError("scipy is required")
 
 
 class StructureState(str, Enum):
@@ -28,6 +21,8 @@ class StructureState(str, Enum):
 
 def atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> np.ndarray:
     """Compute Average True Range."""
+    import numpy as np
+    import pandas as pd
     prev_close = np.roll(close, 1)
     prev_close[0] = close[0]
     tr = np.maximum(high - low, np.maximum(np.abs(high - prev_close), np.abs(low - prev_close)))
@@ -36,6 +31,7 @@ def atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) 
 
 def sma(data: np.ndarray, period: int) -> np.ndarray:
     """Simple moving average."""
+    import pandas as pd
     return pd.Series(data).rolling(period).mean().to_numpy()
 
 
@@ -55,6 +51,13 @@ def detect_structure(candles: pd.DataFrame, lookback: int = 150) -> StructureSta
     Returns:
         StructureState enum value.
     """
+    import numpy as np
+    import pandas as pd
+    try:
+        from scipy.signal import find_peaks
+    except Exception:
+        def find_peaks(*args, **kwargs):
+            raise ImportError("scipy is required")
     if len(candles) < lookback:
         lookback = len(candles)
     if lookback < 20:

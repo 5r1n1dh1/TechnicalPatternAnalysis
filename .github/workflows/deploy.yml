@@ -21,11 +21,11 @@ jobs:
         run: npx vercel@latest deploy --prod --token=$VERCEL_API_KEY --cwd server
       - name: Verify smoke (production)
         run: |
-          URL="https://myaiinvestment.vercel.app"
+          URL="${VERCEL_PROD_URL:-https://myaiinvestment.vercel.app}"
           echo "Smoke test: $URL/api/health"
-          curl -sf "$URL/api/health" || echo "SMOKE FAIL: /api/health"
+          curl -sf --max-time 10 "$URL/api/health" || (sleep 5 && curl -sf --max-time 10 "$URL/api/health") || echo "SMOKE FAIL: /api/health"
           echo "Smoke test: $URL/api/search?q=RELIANCE"
-          curl -sf "$URL/api/search?q=RELIANCE" || echo "SMOKE FAIL: /api/search"
+          curl -sf --max-time 10 "$URL/api/search?q=RELIANCE" || (sleep 5 && curl -sf --max-time 10 "$URL/api/search?q=RELIANCE") || echo "SMOKE FAIL: /api/search"
   smoke-test:
     needs: deploy
     runs-on: ubuntu-latest
@@ -36,7 +36,12 @@ jobs:
         run: |
           echo "Smoke-testing $BASE_URL"
           for path in "/api/health" "/api/search?q=RELIANCE"; do
-            code=$(curl -s -o /tmp/resp.json -w '%{http_code}' -L "$BASE_URL$path" || true)
+            code=$(curl -s -o /tmp/resp.json -w '%{http_code}' -L --max-time 10 "$BASE_URL$path" || true)
+            if [ "$code" != "200" ]; then
+              # retry once
+              sleep 5
+              code=$(curl -s -o /tmp/resp.json -w '%{http_code}' -L --max-time 10 "$BASE_URL$path" || true)
+            fi
             echo "$path -> HTTP $code"
             head -c 500 /tmp/resp.json; echo
             if [ "$code" != "200" ]; then

@@ -31,10 +31,18 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Build APK (R8/Minify)
+      - name: Compile Kotlin (increase heap)
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.parallel=false'
         run: |
           cd android
-          ./gradlew assembleRelease
+          ./gradlew :app:compileReleaseKotlin
+      - name: Assemble Release (with R8)
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.parallel=false'
+        run: |
+          cd android
+          ./gradlew :app:assembleRelease
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

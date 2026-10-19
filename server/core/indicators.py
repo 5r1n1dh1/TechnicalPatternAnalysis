@@ -1,9 +1,10 @@
 """Technical indicators — point-in-time, no TA-Lib."""
 from __future__ import annotations
-import numpy as np, pandas as pd
 
 
 def rsi(close: np.ndarray, period: int = 14) -> np.ndarray:
+    import numpy as np
+    import pandas as pd
     delta = np.diff(np.concatenate([[close[0]], close]))
     gain = np.clip(delta, 0, None)
     loss = np.clip(-delta, 0, None)
@@ -14,6 +15,7 @@ def rsi(close: np.ndarray, period: int = 14) -> np.ndarray:
 
 
 def rsi_divergence(close: np.ndarray, rsi_vals: np.ndarray, lookback: int = 40) -> tuple[bool, bool]:
+    import numpy as np
     if len(close) < lookback + 10:
         return False, False
     pivs_low, pivs_high = _find_pivots(close[-lookback:])
@@ -26,6 +28,7 @@ def rsi_divergence(close: np.ndarray, rsi_vals: np.ndarray, lookback: int = 40) 
 
 
 def _find_pivots(arr: np.ndarray) -> tuple[list[int], list[int]]:
+    import numpy as np
     from scipy.signal import find_peaks
     lows, _ = find_peaks(-arr, distance=3)
     highs, _ = find_peaks(arr, distance=3)
@@ -33,6 +36,8 @@ def _find_pivots(arr: np.ndarray) -> tuple[list[int], list[int]]:
 
 
 def macd(close: np.ndarray, fast: int = 12, slow: int = 26, sig: int = 9) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    import numpy as np
+    import pandas as pd
     ema_fast = pd.Series(close).ewm(span=fast, adjust=False).mean().to_numpy()
     ema_slow = pd.Series(close).ewm(span=slow, adjust=False).mean().to_numpy()
     line = ema_fast - ema_slow
@@ -42,12 +47,16 @@ def macd(close: np.ndarray, fast: int = 12, slow: int = 26, sig: int = 9) -> tup
 
 
 def ema_set(close: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    import numpy as np
+    import pandas as pd
     return (pd.Series(close).ewm(span=20, adjust=False).mean().to_numpy(),
             pd.Series(close).ewm(span=50, adjust=False).mean().to_numpy(),
             pd.Series(close).ewm(span=200, adjust=False).mean().to_numpy())
 
 
 def adx_di(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> tuple[float, float, float]:
+    import numpy as np
+    import pandas as pd
     close_shift = np.roll(close, 1)
     close_shift[0] = close[0]
     tr = np.maximum(high - low, np.maximum(np.abs(high - close_shift), np.abs(low - close_shift)))
@@ -66,6 +75,8 @@ def adx_di(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 1
 
 
 def atr_pct(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> float:
+    import numpy as np
+    import pandas as pd
     close_shift = np.roll(close, 1)
     close_shift[0] = close[0]
     tr = np.maximum(high - low, np.maximum(np.abs(high - close_shift), np.abs(low - close_shift)))
@@ -74,6 +85,8 @@ def atr_pct(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 
 
 
 def bollinger_band(close: np.ndarray, period: int = 20, std: int = 2) -> tuple[float, float, float, float, bool]:
+    import numpy as np
+    import pandas as pd
     s = pd.Series(close)
     ma = s.rolling(period, min_periods=period).mean().to_numpy()
     std_s = s.rolling(period, min_periods=period).std().to_numpy()
@@ -93,6 +106,7 @@ def bollinger_band(close: np.ndarray, period: int = 20, std: int = 2) -> tuple[f
 
 
 def obv_slope(close: np.ndarray, volume: np.ndarray) -> float:
+    import numpy as np
     obv = np.where(np.diff(np.concatenate([[close[0]], close])) > 0, volume[1:], np.where(np.diff(np.concatenate([[close[0]], close])) < 0, -volume[1:], 0))
     # Correct OBV
     change = np.diff(close)
@@ -110,12 +124,14 @@ def obv_slope(close: np.ndarray, volume: np.ndarray) -> float:
 
 
 def volume_ratio_5_20(volume: np.ndarray) -> float:
+    import numpy as np
     if len(volume) < 20:
         return 1.0
     return float(np.mean(volume[-5:]) / (np.mean(volume[-20:-5]) + 1e-9))
 
 
 def delivery_pct(csv_path: str | None) -> float | None:
+    import numpy as np
     try:
         import csv
         with open(csv_path, newline="") as f:
