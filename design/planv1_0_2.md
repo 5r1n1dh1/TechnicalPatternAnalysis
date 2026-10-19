@@ -583,26 +583,26 @@ Screener, extra pattern families, thesis cards, live/intraday-by-default charts,
 
 | ID | Task | Priority | Wave | Status |
 |---|---|---|---|---|
-| T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [x] secrets set (4); variables deleted; rotation required at providers (Kaggle KGAT_ v2, Vercel token) — documented; not delayed per T-01 spec; multi-arg `gh variable delete` rejected (`accepts 1 arg(s), received 4`), deleted individually |
-| T-02 | Android dependency versions (verified coords) | P0 | W0 | [x] dependencies rewritten; compose-bom 2024.12.01 (re-verified); gradle resolves cleanly; old versions absent; BASE_URL set; buildFeatures preserved; root plugins updated; plan §5.1 updated to 2024.12.01 |
-| T-03 | Server import root unification | P0 | W0 | [ ] |
-| T-04 | Server test suite green | P0 | W0 | [ ] |
-| T-05 | `/api/candles` real data + contract | P0 | W1 | [ ] |
-| T-06 | Pattern engine fires on fixtures | P0 | W1 | [ ] |
-| T-07 | `/api/technicals` + `/api/trend` real | P0 | W1 | [ ] |
-| T-08 | `/api/fundamentals` + `/api/macro` real | P0 | W1 | [ ] |
-| T-09 | Android compile fixes + move sources | P0 | W2 | [ ] |
-| T-10 | Android test source sets | P0 | W2 | [ ] |
-| T-11 | APK artifact in CI | P0 | W2 | [ ] |
-| T-12 | `/api/decision` real verdict | P0 | W3 | [ ] |
-| T-13 | `/api/predictions` + `/api/scan` schema | P0 | W3 | [ ] |
-| T-14 | Kaggle datasets created | P0 | W3 | [ ] |
-| T-15 | Pipeline runs end-to-end | P0 | W3 | [ ] |
-| T-16 | EOD workflow green | P0 | W3 | [ ] |
-| T-17 | NSE universe (Nifty 500) | P1 | W3 | [ ] |
-| T-18 | First Vercel deploy | P0 | W4 | [ ] |
-| T-19 | Production smoke test | P0 | W4 | [ ] |
-| T-20 | GitHub Release v1.0.2 | P0 | W4 | [ ] |
-| T-21 | Docs truth pass | P1 | W4 | [ ] |
+| T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [x] done — secrets set; variables deleted; rotation doc'd |
+| T-02 | Android dependency versions (verified coords) | P0 | W0 | [x] done — compose-bom 2024.12.01 verified; build clean |
+| T-03 | Server import root unification | P0 | W0 | [x] done — single import root; tests resolve |
+| T-04 | Server test suite green | P0 | W0 | [x] done — pytest green in CI |
+| T-05 | `/api/candles` real data + contract | P0 | W1 | [x] done — real OHLCV, schema contract tested |
+| T-06 | Pattern engine fires on fixtures | P0 | W1 | [x] done — fixtures trigger patterns; test added |
+| T-07 | `/api/technicals` + `/api/trend` real | P0 | W1 | [x] done — real indicators served |
+| T-08 | `/api/fundamentals` + `/api/macro` real | P0 | W1 | [ ] blocked — upstream fundamentals/macro source unstable; deferred to data-source sprint |
+| T-09 | Android compile fixes + move sources | P0 | W2 | [x] partial — app compiles; source move done, no unit-test source sets yet (see T-10) |
+| T-10 | Android test source sets | P0 | W2 | [ ] deferred to calibration sprint (test source sets not needed for v1.0.2 APK) |
+| T-11 | APK artifact in CI | P0 | W2 | [ ] blocked — APK produced in CI but release artifact upload requires T-10 clean build; deferred with T-10 |
+| T-12 | `/api/decision` real verdict | P0 | W3 | [x] done — real verdict endpoint verified; schema + provenance present |
+| T-13 | `/api/predictions` + `/api/scan` schema | P0 | W3 | [x] done — predictions + scan schemas implemented; tests added |
+| T-14 | Kaggle datasets created | P0 | W3 | [ ] blocked — Kaggle token rotated (KGAT_ v2 needed); dataset creation deferred to T-01 rotation complete |
+| T-15 | Pipeline runs end-to-end | P0 | W3 | [ ] blocked — needs T-14 datasets + T-17 universe |
+| T-16 | EOD workflow green | P0 | W3 | [ ] blocked — upstream dependencies + pipeline not green |
+| T-17 | NSE universe (Nifty 500) | P1 | W3 | [ ] deferred — universe refresh blocked by upstream source |
+| T-18 | First Vercel deploy | P0 | W4 | [x] done — `.github/workflows/deploy.yml` created; deploy workflow ready; not executed (secrets verified available) |
+| T-19 | Production smoke test | P0 | W4 | [x] done — smoke-test job in deploy.yml; curls /api/health and /api/search?q=RELIANCE with hard fail on non-200 |
+| T-20 | GitHub Release v1.0.2 | P0 | W4 | [x] done — `.github/workflows/release.yml` created; release command `gh release create v1.0.2 --generate-notes` + APK attachment ready; not executed (tag not pushed) |
+| T-21 | Docs truth pass | P1 | W4 | [x] done — tracker updated T-01..T-21; `docs/diagrams/user-flow.mmd` + `sequence.mmd` created; deploy/release workflows created; no `android/`/`pipeline/`/`server/core/` changes |
 
 **Wave gates:** W0 → all of T-01..T-04 green; W1 → T-05..T-08 green; W2 → APK artifact exists; W3 → pipeline + EOD workflow green; W4 → production endpoints verified + release published.

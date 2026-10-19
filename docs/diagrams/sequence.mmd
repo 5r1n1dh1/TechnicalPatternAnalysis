@@ -1,0 +1,31 @@
+%% Sequence: client -> API -> server -> upstream -> verdict
+sequenceDiagram
+    participant C as Client (Android)
+    participant A as API (Vercel /api/index.py)
+    participant S as Server (routers)
+    participant Y as yfinance / Kaggle
+    participant R as Response
+    participant V as Verdict Engine
+
+    C->>A: GET /api/search?q=RELIANCE
+    A->>S: route to search router
+    S->>Y: fetch symbol list
+    Y-->>S: symbols
+    S-->>R: 200 [{symbol, name}]
+    R-->>C: JSON list
+
+    C->>A: GET /api/technicals?symbol=RELIANCE
+    A->>S: route to technicals router
+    S->>Y: fetch price history
+    Y-->>S: OHLCV
+    S->>V: indicators + patterns
+    V-->>R: signals with provenance
+    R-->>C: JSON payload
+
+    C->>A: GET /api/decision?symbol=RELIANCE
+    A->>S: route to decision router
+    S->>Y: fundamentals + technicals
+    Y-->>S: raw data
+    S->>V: score
+    V-->>R: verdict (BUY/HOLD/SELL, confidence)
+    R-->>C: JSON verdict

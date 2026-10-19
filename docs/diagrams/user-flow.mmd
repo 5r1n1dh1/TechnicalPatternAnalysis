@@ -1,0 +1,13 @@
+%% User flow: symbol analysis journey
+flowchart TD
+    U[User] --> S[Enter Symbol]
+    S --> API[GET /api/search?q=SYMBOL]
+    API --> P[Pattern Engine /api/patterns]
+    P --> T[Technical /api/technicals + /api/trend]
+    P --> C[Chart /api/candles]
+    P --> F[Fundamentals /api/fundamentals]
+    T --> D[Decision /api/decision]
+    C --> D
+    F --> D
+    D --> V[Verdict: BUY / HOLD / SELL + confidence + provenance]
+    V --> U

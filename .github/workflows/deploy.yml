@@ -1,0 +1,47 @@
+name: Deploy to Vercel
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm i -g vercel@latest
+      - name: Deploy server
+        env:
+          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+        run: npx vercel@latest deploy --prod --token=$VERCEL_API_KEY --cwd server
+      - name: Verify smoke (production)
+        run: |
+          URL="https://myaiinvestment.vercel.app"
+          echo "Smoke test: $URL/api/health"
+          curl -sf "$URL/api/health" || echo "SMOKE FAIL: /api/health"
+          echo "Smoke test: $URL/api/search?q=RELIANCE"
+          curl -sf "$URL/api/search?q=RELIANCE" || echo "SMOKE FAIL: /api/search"
+    id: deploy
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ vars.VERCEL_PROD_URL || 'https://myaiinvestment.vercel.app' }}
+    steps:
+      - name: Smoke test production endpoints
+        run: |
+          echo "Smoke-testing $BASE_URL"
+          for path in "/api/health" "/api/search?q=RELIANCE"; do
+            code=$(curl -s -o /tmp/resp.json -w '%{http_code}' -L "$BASE_URL$path" || true)
+            echo "$path -> HTTP $code"
+            head -c 500 /tmp/resp.json; echo
+            if [ "$code" != "200" ]; then
+              echo "::error::Smoke test failed for $path (HTTP $code)"
+              exit 1
+            fi
+          done
+          echo "Smoke test passed"
