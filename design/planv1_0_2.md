@@ -207,7 +207,7 @@ T-15 ──► T-17 (universe refresh) ──► T-18 (vercel deploy) ──► 
 | `org.jetbrains.kotlin.plugin.compose` | **2.0.21** | — |
 | `org.jetbrains.kotlin.plugin.serialization` | **2.0.21** | — |
 | `com.google.devtools.ksp` | **2.0.21-1.0.28** | in KSP metadata |
-| `androidx.compose:compose-bom` | **2024.10.01** | in BOM metadata (2024.03.03 does **not** exist) |
+| `androidx.compose:compose-bom` | **2024.12.01** | in BOM metadata (2024.03.03 does **not** exist); 2024.10.01 also exists — 2024.12.01 chosen per T-02 task spec and re-verified 200 on maven.google.com |
 | `androidx.activity:activity-compose` | **1.9.3** | 1.7.3 does **not** exist |
 | `androidx.lifecycle:lifecycle-viewmodel-compose` | **2.8.7** | in metadata |
 | `androidx.compose.material3:material3` | BOM-managed | — |
@@ -584,7 +584,7 @@ Screener, extra pattern families, thesis cards, live/intraday-by-default charts,
 | ID | Task | Priority | Wave | Status |
 |---|---|---|---|---|
 | T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [x] secrets set (4); variables deleted; rotation required at providers (Kaggle KGAT_ v2, Vercel token) — documented; not delayed per T-01 spec; multi-arg `gh variable delete` rejected (`accepts 1 arg(s), received 4`), deleted individually |
-| T-02 | Android dependency versions (verified coords) | P0 | W0 | [ ] |
+| T-02 | Android dependency versions (verified coords) | P0 | W0 | [x] dependencies rewritten; compose-bom 2024.12.01 (re-verified); gradle resolves cleanly; old versions absent; BASE_URL set; buildFeatures preserved; root plugins updated; plan §5.1 updated to 2024.12.01 |
 | T-03 | Server import root unification | P0 | W0 | [ ] |
 | T-04 | Server test suite green | P0 | W0 | [ ] |
 | T-05 | `/api/candles` real data + contract | P0 | W1 | [ ] |
