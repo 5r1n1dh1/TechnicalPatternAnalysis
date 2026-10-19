@@ -1,6 +1,8 @@
 package com.tpa.app.ui.symbol
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +41,11 @@ import com.tpa.app.network.TpaApi
 import com.tpa.app.network.Candle
 import com.tpa.app.network.Interval
 import com.tpa.app.network.Range
+import com.tpa.app.ui.chart.PatternOverlayRenderer
+import com.tpa.app.ui.chart.DetectionChip
+import com.tpa.app.ui.chart.PatternOverlay
+import com.tpa.app.ui.chart.AnchorPoint
+import com.tpa.app.ui.chart.NecklineInfo
 
 @Composable
 fun ChartScreen(
@@ -152,6 +159,37 @@ fun ChartScreen(
                         
                         setData(data)
                         animateX(1000)
+
+                        // Render pattern overlay after data is set
+                        val selectedPatternData = state.detections.find {
+                            it.id == state.selectedPattern
+                        }
+                        selectedPatternData?.let { d ->
+                            PatternOverlayRenderer(
+                                chart,
+                                chart.viewPortHandler
+                            ).drawPatternOverlay(
+                                PatternOverlay(
+                                    anchors = d.anchors.map { 
+                                        AnchorPoint(it.candle_index, it.price) 
+                                    },
+                                    neckline = d.neckline?.let { 
+                                        NecklineInfo(
+                                            it.candle_index.toFloat(),
+                                            it.price.toFloat(),
+                                            it.candle_index.toFloat()+3f,
+                                            it.price.toFloat()
+                                        )
+                                    },
+                                    targetPrice = d.target_price,
+                                    stopPrice = d.stop_price,
+                                    patternName = d.patternName,
+                                    direction = d.direction,
+                                    confidence = d.confidence,
+                                    riskReward = d.risk_reward
+                                )
+                            )
+                        }
                     }
                 }
                 
@@ -200,8 +238,9 @@ fun ChartScreen(
                 }
                 
                 Button(
-                    onClick = { PatternDropdown(state.symbol) { pattern -> 
-                        // Handle pattern selection
+                    onClick = { PatternDropdown(state.symbol) { pattern ->
+                        viewModel.selectPattern(pattern)
+                        viewModel.loadPatterns()
                     } },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -211,6 +250,52 @@ fun ChartScreen(
                     Text("Patterns")
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Detection chips row (horizontal scroll)
+            Text(
+                text = "Pattern Detections",
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.White,
+                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(state.detections) { detection ->
+                    DetectionChip(
+                        detection = detection,
+                        selected = state.selectedPattern == detection.id,
+                        onClick = {
+                            viewModel.selectPattern(detection.id)
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Trade-plan card
+            if (state.tradePlan != null && state.tradePlanLoading.not()) {
+                TradePlanCard(
+                    plan = TradePlan(
+                        entryPrice = state.tradePlan.entry_price,
+                        entryDate = state.tradePlan.entry_date,
+                        stopPrice = state.tradePlan.stop_price,
+                        stopDate = state.tradePlan.stop_date,
+                        targetPrice = state.tradePlan.target_price,
+                        targetDate = state.tradePlan.target_date,
+                        rr = state.tradePlan.risk_reward,
+                        invalidation = state.tradePlan.invalidation,
+                        positionSize = state.tradePlan.position_size?.toString() ?: "Set capital in Settings"
+                    ),
+                    onNavigate = {}
+                )
+            } else if (state.tradePlanLoading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+            }
+
         }
     }
 }

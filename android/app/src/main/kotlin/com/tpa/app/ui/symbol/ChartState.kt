@@ -1,6 +1,8 @@
 package com.tpa.app.ui.symbol
 
 import com.tpa.app.network.Candle
+import com.tpa.app.network.Detection
+import com.tpa.app.network.TradePlanResponse
 import com.tpa.app.ui.chart.Interval
 import com.tpa.app.ui.chart.Range
 
@@ -13,5 +15,12 @@ data class ChartState(
     val trend: String = "",
     val eodPrice: String = "",
     val interval: Interval = Interval("1d"),
-    val range: Range = Range("1y")
+    val range: Range = Range("1y"),
+    val selectedPattern: String? = null,
+    val detections: List<Detection> = emptyList(),
+    val tradePlan: TradePlanResponse? = null,
+    val patternsLoading: Boolean = false,
+    val patternsError: String? = null,
+    val tradePlanLoading: Boolean = false,
+    val tradePlanError: String? = null
 )
