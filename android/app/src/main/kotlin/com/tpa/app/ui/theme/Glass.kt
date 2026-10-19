@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 private val GlassWhite = Color(0xFFFFFFFF)
-private val GlassBorder = Color(0x1FCCCCCC)
+private val GlassBorder = Color(0x1FFFFFFF) // 12% white
 
 /**
  * Glassmorphism surface: 8% white alpha fill, 1dp 12%-white border, 20dp corner radius.

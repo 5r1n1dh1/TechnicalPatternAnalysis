@@ -1,8 +1,7 @@
 package com.tpa.app.ui.symbol
 
 import android.content.Context
-import androidx.arch.core.executor.testing.TestDispatcherListene
-import androidx.arch.core.executor.testing.TestableDispatcher
+
 import androidx.test.core.app.ApplicationProvider
 import com.tpa.app.BuildConfig
 import com.tpa.app.network.Candle
@@ -24,10 +23,8 @@ import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.any
 import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.KotlinxSerializationConverterFactory
-import retrofit2.create
 
 @RunWith(Mockito::class)
 class ChartViewModelTest {

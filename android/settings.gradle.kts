@@ -1,5 +1,6 @@
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         google()
         mavenCentral()
         maven("https://jitpack.io")
@@ -7,10 +8,6 @@ pluginManagement {
 }
 
 include(":app")
-enablePlugin("com.google.devtools.ksp") // For Kotlin Symbol Processing
-enablePlugin("com.android.application")
-enablePlugin("org.jetbrains.kotlin.plugin.compose")
-enablePlugin("org.jetbrains.kotlin.plugin.serialization")
 
 dependencyResolutionManagement {
     repositories {

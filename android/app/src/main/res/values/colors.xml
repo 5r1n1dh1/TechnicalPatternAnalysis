@@ -1,0 +1,7 @@
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="glass_border">#1FFFFFFF</color> <!-- 12% white -->
+    <color name="accent_green">#FF34D399</color>
+    <color name="accent_red">#FFFF4444</color>
+</resources>

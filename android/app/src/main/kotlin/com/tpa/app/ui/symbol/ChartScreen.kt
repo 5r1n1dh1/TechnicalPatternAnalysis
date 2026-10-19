@@ -32,22 +32,12 @@ import com.github.mikephil.charting.data.*
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.utils.ColorTemplate
 import com.tpa.app.R
-import com.tpa.app.ui.chart.IntervalDropdown
-import com.tpa.app.ui.chart.RangeDropdown
-import com.tpa.app.ui.chart.PatternDropdown
-import com.tpa.app.ui.chart.ChartState
-import com.tpa.app.ui.chart.ChartViewModel
-import com.tpa.app.network.TpaApi
-import com.tpa.app.network.Candle
-import com.tpa.app.network.Interval
-import com.tpa.app.network.Range
-import com.tpa.app.ui.chart.PatternOverlayRenderer
-import com.tpa.app.ui.theme.glassSurface
 import com.tpa.app.network.NetworkModule
-import com.tpa.app.ui.chart.DetectionChip
-import com.tpa.app.ui.chart.PatternOverlay
-import com.tpa.app.ui.chart.AnchorPoint
-import com.tpa.app.ui.chart.NecklineInfo
+import com.tpa.app.network.TpaApi
+import com.tpa.app.ui.chart.*
+import com.tpa.app.ui.theme.glassSurface
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun ChartScreen(
@@ -107,7 +97,7 @@ fun ChartScreen(
                 LaunchedEffect(state.symbol) { techVm.load(state.symbol) }
                 TechnicalScreen(technical = tech, decision = dec, modifier = Modifier.weight(1f))
             } else if (selectedTab == 0) {
-                Text("Fundamentals", color = Color.White)
+                Text("Fundamentals", color = ComposeColor.White)
             } else {
                 // Chart container
             {
@@ -130,41 +120,37 @@ fun ChartScreen(
                     
                     // Configure candlestick chart
                     val colors = ColorTemplate.getColors(
-                        Color(0xFF34D399),  // green up
-                        Color(0xFFFF4444)    // red down
+                        Color.GREEN,  // green up
+                        Color.RED    // red down
                     )
                     
-                    val candleData = state.candles?.let { candles ->
-                        val data = ArrayList<CandleData>()
-                        
+                    state.candles?.let { candles ->
+                        val entries = ArrayList<CandleEntry>()
                         for (candle in candles) {
-                            val open = candle.open.toDouble()
-                            val close = candle.close.toDouble()
-                            val high = candle.high.toDouble()
-                            val low = candle.low.toDouble()
-                            val time = candle.time
-                        
-                            val candleEntry = CandleEntry(
-                                time.toFloat(),
-                                open,
-                                high,
-                                low,
-                                close
-                            )
-                            
-                            data.add(candleEntry)
+                            val open = candle.o
+                            val close = candle.c
+                            val high = candle.h
+                            val low = candle.l
+                            val time = candle.t
+                            val timestamp = try {
+                                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).parse(time)?.time ?: 0L
+                            } catch (e: Exception) {
+                                try {
+                                    SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(time)?.time ?: 0L
+                                } catch (e2: Exception) {
+                                    0L
+                                }
+                            }
+                            val candleEntry = CandleEntry(timestamp.toFloat(), high.toFloat(), low.toFloat(), open.toFloat(), close.toFloat())
+                            entries.add(candleEntry)
                         }
+                        val candleDataSet = CandleDataSet(entries, "Price").apply {
+                            setDrawValues(false)
+                            colors = colors
+                        }
+                        val candleData = CandleData(candleDataSet)
+                        setData(candleData)
                         
-                        CandleData(data, colors)
-                    }
-                    
-                    if (data != null) {
-                        candleData?.setDrawValues(false)
-                        candleData?.setDrawValues(true)
-                        candleData?.setValueTextSize(9f)
-                        candleData?.setValueTextColor(Color.White)
-                        
-                        val xAxis = xAxis
                         xAxis.position = XAxis.XAxisPosition.BOTTOM
                         xAxis.granularity = 1f
                         xAxis.valueFormatter = object : ValueFormatter() {
@@ -175,19 +161,11 @@ fun ChartScreen(
                             }
                         }
                         
-                        val leftAxis = getAxisLeft()
-                        leftAxis.setDrawGridLines(false)
-                        leftAxis.setDrawZeroLine(false)
+                        getAxisLeft().setDrawGridLines(false)
+                        getAxisLeft().setDrawZeroLine(false)
+                        getAxisRight().setDrawGridLines(false)
+                        getAxisRight().setDrawZeroLine(false)
                         
-                        val rightAxis = getAxisRight()
-                        rightAxis.setDrawGridLines(false)
-                        rightAxis.setDrawZeroLine(false)
-                        
-                        data.setValueDrawOrder(ValueDrawOrder.SAVE_AND_REDRAW)
-                        data.setValueTextSize(9f)
-                        data.setValueTextColor(Color.White)
-                        
-                        setData(data)
                         animateX(1000)
 
                         // Render pattern overlay after data is set
@@ -287,7 +265,7 @@ fun ChartScreen(
             Text(
                 text = "Pattern Detections",
                 style = MaterialTheme.typography.titleSmall,
-                color = Color.White,
+                color = ComposeColor.White,
                 modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
