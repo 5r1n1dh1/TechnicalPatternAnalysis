@@ -221,41 +221,17 @@ fun ChartScreen(
                     Text("Back")
                 }
                 
-                Button(
-                    onClick = { IntervalDropdown(state.symbol, state.interval, state.range) { interval -> 
-                        viewModel.updateInterval(interval)
-                    } },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Interval: ${state.interval}")
+                IntervalDropdown(state.symbol, state.interval, state.range) { interval -> 
+                    viewModel.updateInterval(interval)
                 }
                 
-                Button(
-                    onClick = { RangeDropdown(state.symbol, state.range) { range -> 
-                        viewModel.updateRange(range)
-                    } },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Range: ${state.range}")
+                RangeDropdown(state.symbol, state.range) { range -> 
+                    viewModel.updateRange(range)
                 }
                 
-                Button(
-                    onClick = { PatternDropdown(state.symbol) { pattern ->
-                        viewModel.selectPattern(pattern)
-                        viewModel.loadPatterns()
-                    } },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Patterns")
+                PatternDropdown(state.symbol) { pattern ->
+                    viewModel.selectPattern(pattern)
+                    viewModel.loadPatterns()
                 }
             }
 
