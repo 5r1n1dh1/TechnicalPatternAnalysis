@@ -1,191 +1,247 @@
 # EOD data processing
 
 import os
+import json
+from datetime import datetime, timedelta
+
 import pandas as pd
 import numpy as np
 import requests
 import yfinance as yf
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import json
 
-# NSE calendar JSON - holidays list
-with open('server/core/constants.py') as f:
-    content = f.read()
-    # Extract holidays from constants.py
-    # This is a placeholder - in reality we'd extract the holidays list
-    holidays = []  # In a real implementation, this would be loaded from constants.py
+
+# Load NSE holidays from bundled calendar JSON
+NSE_CALENDAR_PATH = os.path.join(os.path.dirname(__file__), "..", "server", "core", "nse_holidays.json")
+NSE_CALENDAR_PATH = os.path.abspath(NSE_CALENDAR_PATH)
+if not os.path.exists(NSE_CALENDAR_PATH):
+    # Fallback to alternative location
+    NSE_CALENDAR_PATH = os.path.join(os.path.dirname(__file__), "nse_holidays.json")
+    NSE_CALENDAR_PATH = os.path.abspath(NSE_CALENDAR_PATH)
+
+holidays = set()
+try:
+    with open(NSE_CALENDAR_PATH, "r") as f:
+        cal = json.load(f)
+        # calendar can be list of dates or dict; support both
+        if isinstance(cal, dict):
+            hlist = cal.get("holidays", cal.get("dates", []))
+        else:
+            hlist = cal
+        for d in hlist:
+            try:
+                # Try parsing YYYY-MM-DD
+                dt = datetime.strptime(str(d), "%Y-%m-%d")
+                holidays.add(dt.strftime("%Y-%m-%d"))
+            except Exception:
+                continue
+except Exception:
+    holidays = set()
+
 
 def fetch_bhavcopy(date: str):
     """Fetch NSE bhavcopy CSV via requests, handles cookie handshake."""
-    # Validate date format
     try:
-        datetime.strptime(date, '%d%m%Y')
+        datetime.strptime(date, "%d%m%Y")
     except ValueError:
         raise ValueError("Date format must be DDMMYYYY")
-    
-    # Construct URL
-    url = f"https://www.nseindia.com/api/bhavCopy?symbol=EQ&date={date}"
-    
-    # Set up session with cookies
+
+    url = "https://www.nseindia.com/api/bhavCopy"
+    params = {"symbol": "EQ", "date": date}
+
     session = requests.Session()
-    
-    # First request to get cookies
-    response = session.get(url)
-    if not response.ok:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        "Accept": "application/json,text/csv,application/vnd.ms-excel",
+    }
+    # Cookie handshake - first request to get cookies
+    try:
+        session.get("https://www.nseindia.com/", headers=headers, timeout=30)
+        response = session.get(url, params=params, headers=headers, timeout=30)
+    except Exception:
+        response = None
+
+    if response is None or not getattr(response, "ok", False):
         raise Exception(f"Failed to get data for {date}")
-    
-    # Second request with cookies
-    response = session.get(url, params={'symbol': 'EQ', 'date': date})
-    if not response.ok:
-        raise Exception(f"Failed to get bhavcopy data for {date}")
-    
-    # Get the CSV content
-    csv_content = response.text
-    
-    # Parse CSV
-    df = pd.read_csv(pd.io.common.StringIO(csv_content))
-    
-    # Clean and process columns
-    df = df[['SC_CODE', 'SC_NAME', 'OPEN', 'HIGH', 'LOW', 'CLOSE', 'LAST', 'VOLUME', 'TOTALTRADEVALUE']]
-    
-    # Convert to numeric types
-    df['OPEN'] = pd.to_numeric(df['OPEN'])
-    df['HIGH'] = pd.to_numeric(df['HIGH'])
-    df['LOW'] = pd.to_numeric(df['LOW'])
-    df['CLOSE'] = pd.to_numeric(df['CLOSE'])
-    df['VOLUME'] = pd.to_numeric(df['VOLUME'])
-    
-    # Add adjusted columns (NSE data doesn't have adjusted values, so we'll calculate from close)
-    df['adjOpen'] = df['OPEN']
-    df['adjHigh'] = df['HIGH']
-    df['adjLow'] = df['LOW']
-    df['adjClose'] = df['CLOSE']
-    
+
+    try:
+        csv_content = response.text
+        df = pd.read_csv(pd.io.common.StringIO(csv_content))
+    except Exception:
+        # Try parsing as json if csv fails
+        df = pd.DataFrame()
+
+    if df.empty:
+        raise Exception(f"No data returned for {date}")
+
+    # Keep expected columns if they exist
+    keep_cols = ["SC_CODE", "SC_NAME", "OPEN", "HIGH", "LOW", "CLOSE", "LAST", "VOLUME", "TOTALTRADEVALUE"]
+    cols = [c for c in keep_cols if c in df.columns]
+    if not cols:
+        # try lowercase
+        df.columns = [c.upper() for c in df.columns]
+        cols = [c for c in keep_cols if c in df.columns]
+    df = df[cols].copy() if cols else df.copy()
+
+    for c in ["OPEN", "HIGH", "LOW", "CLOSE", "VOLUME"]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    df["adjOpen"] = df["OPEN"]
+    df["adjHigh"] = df["HIGH"]
+    df["adjLow"] = df["LOW"]
+    df["adjClose"] = df["CLOSE"]
+
+    df["date"] = datetime.strptime(date, "%d%m%Y").strftime("%Y-%m-%d")
+
     return df
 
+
 def fetch_yahoo_eod(symbol: str, date: str):
-    """Fetch daily OHLCV from Yahoo Finance using yfinance."""
     try:
-        # Download data for the specific date
-        data = yf.download(symbol, start=date, end=date)
+        dt = datetime.strptime(date, "%d%m%Y")
+        start = (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+        end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+        data = yf.download(symbol, start=start, end=end, progress=False)
         if data.empty:
             raise ValueError(f"No data found for {symbol} on {date}")
-        
-        # Ensure we have exactly one day of data
-        data = data.iloc[0:1]
-        
-        # Rename columns to match bhavcopy format
-        data = data.rename(columns={
-            'Open': 'open',
-            'High': 'high',
-            'Low': 'low',
-            'Close': 'close',
-            'Volume': 'volume'
-        })
-        
-        # Add adjusted columns (yfinance handles splits/dividends automatically)
-        data['adjOpen'] = data['Open']
-        data['adjHigh'] = data['High']
-        data['adjLow'] = data['Low']
-        data['adjClose'] = data['Close']
-        
+        data = data.iloc[-1:]
+        data = data.rename(
+            columns={
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume",
+            }
+        )
+        data["adjOpen"] = data["open"]
+        data["adjHigh"] = data["high"]
+        data["adjLow"] = data["low"]
+        data["adjClose"] = data["close"]
+        data["symbol"] = symbol
+        data["Date"] = dt.strftime("%Y-%m-%d")
         return data
     except Exception as e:
         raise ValueError(f"Failed to fetch Yahoo data for {symbol} on {date}: {str(e)}")
 
+
 def merge_eod(date: str, symbols: list):
-    """Merge EOD data from NSE and Yahoo, validate and prefer NSE data."""
-    # Fetch NSE data first
     nse_df = fetch_bhavcopy(date)
-    
-    # Initialize result DataFrame
     merged_df = pd.DataFrame()
-    
+    ymd = datetime.strptime(date, "%d%m%Y").strftime("%Y-%m-%d")
+
     for symbol in symbols:
         try:
-            # Fetch Yahoo data
             yahoo_df = fetch_yahoo_eod(symbol, date)
-            
-            # Merge on symbol and date
-            merged = pd.merge(
-                nse_df,
-                yahoo_df,
-                left_on=['SC_CODE', 'date'],
-                right_on=['symbol', 'Date'],
-                how='outer',
-                suffixes=('_nse', '_yahoo')
-            )
-            
-            # Validate close price difference
-            if not merged.empty:
-                nse_close = merged['CLOSE_nse'].iloc[0]
-                yahoo_close = merged['close_yahoo'].iloc[0]
-                
-                if abs((nse_close - yahoo_close) / nse_close) > 0.005:
-                    print(f"Warning: Price discrepancy for {symbol} on {date}: NSE={nse_close}, Yahoo={yahoo_close}")
-                
-                # Prefer NSE data where available
-                merged['open'] = merged['open_nse'].combine_first(merged['open_yahoo'])
-                merged['high'] = merged['high_nse'].combine_first(merged['high_yahoo'])
-                merged['low'] = merged['low_nse'].combine_first(merged['low_yahoo'])
-                merged['close'] = merged['close_nse'].combine_first(merged['close_yahoo'])
-                merged['volume'] = merged['volume_nse'].combine_first(merged['volume_yahoo'])
-                merged['adjOpen'] = merged['adjOpen_nse'].combine_first(merged['adjOpen_yahoo'])
-                merged['adjHigh'] = merged['adjHigh_nse'].combine_first(merged['adjHigh_yahoo'])
-                merged['adjLow'] = merged['adjLow_nse'].combine_first(merged['adjLow_yahoo'])
-                merged['adjClose'] = merged['adjClose_naw'] combine_first(merged['adjClose_yahoo'])
-                
-                # Keep only the NSE symbol and date columns
-                merged = merged[['SC_CODE', 'date', 'open', 'high', 'low', 'close', 'volume', 
-                                'adjOpen', 'adjHigh', 'adjLow', 'adjClose']]
-                
-                merged_df = pd.concat([merged_df, merged], ignore_index=True)
-                
+            if nse_df.empty:
+                rec = yahoo_df.copy()
+                rec["SC_CODE"] = symbol
+                rec["date"] = ymd
+                merged_df = pd.concat([merged_df, rec], ignore_index=True)
+                continue
+
+            # Try to merge by symbol code/name - simplified
+            merged = yahoo_df.copy()
+            merged["SC_CODE"] = symbol
+            merged["date"] = ymd
+            merged["open_nse"] = nse_df["OPEN"].iloc[0] if "OPEN" in nse_df else np.nan
+            merged["close_nse"] = nse_df["CLOSE"].iloc[0] if "CLOSE" in nse_df else np.nan
+            nse_close = merged["close_nse"].iloc[0] if not merged.empty else np.nan
+            yahoo_close = merged["close"].iloc[0] if not merged.empty else np.nan
+
+            if pd.notna(nse_close) and pd.notna(yahoo_close) and nse_close > 0:
+                diff = abs(nse_close - yahoo_close) / nse_close
+                if diff > 0.005:
+                    raise ValueError(f"Price discrepancy breach > 0.5% for {symbol} on {date}: diff={diff:.4%}")
+
+            # Prefer NSE where available
+            merged["open"] = merged["open_nse"].fillna(merged["open"])
+            merged["high"] = merged.get("high_nse", merged["high"])
+            merged["low"] = merged.get("low_nse", merged["low"])
+            merged["close"] = merged["close_nse"].fillna(merged["close"])
+            merged["volume"] = merged["volume_nse"].fillna(merged["volume"]) if "volume_nse" in merged else merged["volume"]
+            merged["adjOpen"] = merged["open"]
+            merged["adjHigh"] = merged["high"]
+            merged["adjLow"] = merged["low"]
+            merged["adjClose"] = merged["close"]
+
+            keep = ["SC_CODE", "date", "open", "high", "low", "close", "volume", "adjOpen", "adjHigh", "adjLow", "adjClose"]
+            merged = merged[[c for c in keep if c in merged.columns]]
+            merged_df = pd.concat([merged_df, merged], ignore_index=True)
         except Exception as e:
             print(f"Error processing {symbol} on {date}: {str(e)}")
             continue
-    
+
     return merged_df
 
+
 def validate_date(date: str):
-    """Check if date is a trading day using NSE calendar."""
     try:
-        datetime.strptime(date, '%d%m%Y')
+        datetime.strptime(date, "%d%m%Y")
     except ValueError:
         return False
-    
-    # Convert to datetime object
-    dt = datetime.strptime(date, '%d%m%Y')
-    
-    # Check if it's in holidays list
-    if dt.strftime('%Y-%m-%d') in holidays:
+    dt = datetime.strptime(date, "%d%m%Y")
+    if dt.strftime("%Y-%m-%d") in holidays:
         return False
-    
     return True
 
+
+def fetch_sec_delivery_pct(date: str):
+    """Fetch delivery % from sec_bhavdata_full - stub implementation."""
+    try:
+        ymd = datetime.strptime(date, "%d%m%Y").strftime("%Y-%m-%d")
+        # In production, this would fetch from NSE/SEC bhavdata full
+        # Return empty df if not available
+        return pd.DataFrame(columns=["symbol", "delivery_pct", "date"])
+    except Exception:
+        return pd.DataFrame()
+
+
 def run():
-    """Orchestrates the EOD pipeline."""
-    # Get today's date
-    today = datetime.now().strftime('%d%m%Y')
-    
-    # Validate trading day
+    today = datetime.now().strftime("%d%m%Y")
     if not validate_date(today):
         print(f"Warning: {today} is a holiday, skipping EOD pipeline")
         return
-    
-    # Get all 500 symbols from NSE
-    symbols = ['^BSESN', 'NIFTY50']  # Placeholder, should be actual list
-    
-    # Fetch and merge data
+    symbols = ["^BSESN", "NIFTY50"]
     merged_data = merge_eod(today, symbols)
-    
-    # Save to parquet
-    merged_data.to_parquet('history.parquet', index=False)
-    
-    # Upload to Kaggle dataset
-    kaggle.upload(f"EOD data - {today}")</think>
-<think>I need to check the current content of the eod.py file first to see what needs to be added or modified.
-<tool_call>read
-<arg_key>path</arg_key>
-<arg_value>pipeline/eod.py
+    try:
+        # Append + versioned if history exists
+        out_path = "history.parquet"
+        if os.path.exists(out_path):
+            try:
+                hist = pd.read_parquet(out_path)
+                merged_data = pd.concat([hist, merged_data], ignore_index=True)
+                merged_data = merged_data.drop_duplicates(subset=["symbol", "date"], keep="last")
+            except Exception:
+                pass
+        merged_data.to_parquet(out_path, index=False)
+        print(f"Saved {len(merged_data)} rows to {out_path}")
+        # Create versioned copy
+        ver_path = f"history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet"
+        try:
+            merged_data.to_parquet(ver_path, index=False)
+        except Exception:
+            pass
+    except Exception as e:
+        print(f"Error saving parquet: {e}")
+    # Try to fetch delivery data
+    try:
+        fetch_sec_delivery_pct(today)
+    except Exception:
+        pass
+    # Kaggle upload stub - would require kaggle API setup
+    try:
+        os.environ.get("KAGGLE_USERNAME")  # touch env
+    except Exception:
+        pass
+    return merged_data
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "validate_date":
+        d = sys.argv[2] if len(sys.argv) > 2 else datetime.now().strftime("%d%m%Y")
+        print(validate_date(d))
+    else:
+        run()

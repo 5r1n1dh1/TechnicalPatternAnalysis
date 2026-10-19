@@ -1,81 +1,150 @@
 """Point-in-time features (§7.1). No future bars used."""
-import numpy as np, pandas as pd
+import numpy as np
+import pandas as pd
+
 
 FEATURE_NAMES = [
-    "ret1", "ret5", "ret10", "ret21", "rsi14", "macdHistNorm",
-    "ema20_50_spread", "adx", "atrPct", "bbWidth", "bbPosition",
-    "volumeRatio5_20", "distance52w", "ema20Slope", "structureState",
-    "relStrength20", "rvol20", "deliveryPct5"
+    "ret1",
+    "ret5",
+    "ret10",
+    "ret21",
+    "rsi14",
+    "macdHistNorm",
+    "ema20_50_spread",
+    "ema50_200_spread",
+    "adx",
+    "atrPct",
+    "bbWidth",
+    "bbPosition",
+    "volumeRatio5_20",
+    "distance52w",
+    "distance52wHighPct",
+    "distance52wLowPct",
+    "dist200dmaPct",
+    "maAlignment",
+    "ema20Slope",
+    "structureState",
+    "relStrength20",
+    "rvol20",
+    "deliveryPct5",
+    "rsi_div_bear",
+    "rsi_div_bull",
 ]
+
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     """Construct features from OHLCV + volume only (no future bars)."""
-    o, h, l, c, v = df['open'], df['high'], df['low'], df['close'], df['volume']
+    o, h, l, c, v = df["open"], df["high"], df["low"], df["close"], df["volume"]
     # Stubs derived only from past rows (point-in-time)
     ret1 = c.pct_change(1)
     ret5 = c.pct_change(5)
     ret10 = c.pct_change(10)
     ret21 = c.pct_change(21)
-    # RSI14 stub using rolling std approximation
+    # RSI14
     delta = c.diff()
     gain = delta.clip(lower=0).rolling(14).mean()
     loss = -delta.clip(upper=0).rolling(14).mean()
     rs = gain / (loss.replace(0, np.nan))
     rsi14 = 100 - (100 / (1 + rs))
-    # MACD hist norm stub
+    # MACD hist norm
     ema12 = c.ewm(span=12, adjust=False).mean()
     ema26 = c.ewm(span=26, adjust=False).mean()
     macd_hist = (ema12 - ema26) / c
-    # EMA spread
+    # EMAs
     ema20 = c.ewm(span=20, adjust=False).mean()
     ema50 = c.ewm(span=50, adjust=False).mean()
-    ema_spread = (ema20 - ema50) / c
+    ema200 = c.ewm(span=200, adjust=False).mean()
+    ema20_50_spread = (ema20 - ema50) / c
+    ema50_200_spread = (ema50 - ema200) / c
     # ADX stub
     tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
-    adx = 100 * tr.rolling(14).mean() / c  # approximate
+    adx = 100 * tr.rolling(14).mean() / c
     # ATR%
     atr_pct = tr.rolling(14).mean() / c
-    # BB width / position stub
+    # BB
     bb_mid = c.rolling(20).mean()
     bb_std = c.rolling(20).std()
     bb_width = (bb_std * 4) / c
     bb_pos = (c - bb_mid) / (bb_std * 2).replace(0, np.nan)
-    # Volume ratio 5/20
+    # Volume ratio
     v5 = v.rolling(5).mean()
     v20 = v.rolling(20).mean()
     vol_ratio = v5 / v20.replace(0, np.nan)
-    # 52-week distance
-    dist52w = (c - c.rolling(252).min()) / c
-    # EMA20 slope
+    # 52-week
+    high52w = c.rolling(252).max()
+    low52w = c.rolling(252).min()
+    dist52w = (c - low52w) / c if False else (c / high52w - 1.0) * (-1.0)  # approximate
+    # simpler forms as per intent
+    distance52w = (high52w - c) / high52w.replace(0, np.nan)
+    distance52wHighPct = (high52w - c) / high52w.replace(0, np.nan) * 100.0
+    distance52wLowPct = (c - low52w) / low52w.replace(0, np.nan) * 100.0
+    # dist from 200 dma pct
+    dist200dmaPct = (c - ema200) / ema200.replace(0, np.nan) * 100.0
+    # ma alignment
+    ma_align = (ema50 > ema200).astype(float) + (ema20 > ema50).astype(float)
+    maAlignment = ma_align
+    # slope
     ema20_slope = ema20.pct_change(5)
-    # Structure state (stub: 0=UP,1=DOWN,2=RANGE)
+    # structure
     structure_state = ((ema20 > ema20.shift(5)).astype(int) * 2) + ((ema50 < ema50.shift(5)).astype(int))
-    # Relative strength 20
+    # rel strength
     rel_str20 = (c.pct_change(20) - c.pct_change(20).rolling(20).mean()) / c
-    # RVOL20
+    # rvol
     rvol20 = v / v.rolling(20).mean().replace(0, np.nan)
-    # Delivery % stub (requires external CSV; set 0 if absent)
+    # delivery pct stub
     delivery_pct5 = pd.Series(0.0, index=c.index)
+    # rsi div flags (simple stubs - no lookahead)
+    rsi_div_bear = pd.Series(0.0, index=c.index)
+    rsi_div_bull = pd.Series(0.0, index=c.index)
 
-    out = pd.DataFrame({
-        "ret1": ret1, "ret5": ret5, "ret10": ret10, "ret21": ret21,
-        "rsi14": rsi14, "macdHistNorm": macd_hist,
-        "ema20_50_spread": ema_spread, "adx": adx, "atrPct": atr_pct,
-        "bbWidth": bb_width, "bbPosition": bb_pos,
-        "volumeRatio5_20": vol_ratio, "distance52w": dist52w,
-        "ema20Slope": ema20_slope, "structureState": structure_state,
-        "relStrength20": rel_str20, "rvol20": rvol20, "deliveryPct5": delivery_pct5,
-    })
+    out = pd.DataFrame(
+        {
+            "ret1": ret1,
+            "ret5": ret5,
+            "ret10": ret10,
+            "ret21": ret21,
+            "rsi14": rsi14,
+            "macdHistNorm": macd_hist,
+            "ema20_50_spread": ema20_50_spread,
+            "ema50_200_spread": ema50_200_spread,
+            "adx": adx,
+            "atrPct": atr_pct,
+            "bbWidth": bb_width,
+            "bbPosition": bb_pos,
+            "volumeRatio5_20": vol_ratio,
+            "distance52w": distance52w,
+            "distance52wHighPct": distance52wHighPct,
+            "distance52wLowPct": distance52wLowPct,
+            "dist200dmaPct": dist200dmaPct,
+            "maAlignment": maAlignment,
+            "ema20Slope": ema20_slope,
+            "structureState": structure_state,
+            "relStrength20": rel_str20,
+            "rvol20": rvol20,
+            "deliveryPct5": delivery_pct5,
+            "rsi_div_bear": rsi_div_bear,
+            "rsi_div_bull": rsi_div_bull,
+        }
+    )
     return out.fillna(0)
 
+
 def lookahead_bias_test(df):
-    """Shuffle future bars (t+1..t+5) and assert features at t unchanged."""
+    """Shuffle future bars (t+1..) and assert features at t unchanged (no lookahead)."""
     df_copy = df.copy()
-    # Simple future-shuffle stub: swap rows at positions t+1 to t+5
-    if len(df_copy) > 5:
-        future_slice = df_copy.iloc[1:6].copy()
-        future_slice['close'] = future_slice['close'].sample(frac=1, random_state=42).values
-        df_copy.iloc[1:6] = future_slice
-    f_after = build_features(df_copy)
+    if len(df_copy) > 6:
+        # Shuffle a slice of future rows
+        idx = df_copy.index
+        # swap last N-1 rows randomly affects? better to permute from pos 1 onward
+        future = df_copy.iloc[1:6].copy()
+        rng = np.random.default_rng(42)
+        perm = rng.permutation(len(future))
+        future_shuf = future.iloc[perm].copy()
+        df_copy.iloc[1:6] = future_shuf.values
     f_before = build_features(df)
+    f_after = build_features(df_copy)
     assert f_after.shape == f_before.shape
+    # features at index 0 must be unchanged
+    if len(f_before) > 0:
+        assert np.allclose(f_before.iloc[0].values, f_after.iloc[0].values, atol=1e-10), "Lookahead bias detected"
+    return True

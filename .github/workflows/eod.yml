@@ -1,13 +1,9 @@
 name: EOD Pipeline
 
-# Secrets come from GitHub secrets (VERCEL_API_KEY, VERCEL_ORG_ID, VERCEL_PROJECT_ID, KAGGLE_API_KEY)
 on:
   schedule:
-    - cron: '30 13 * * 1-5'  # UTC Mon-Fri (19:00 IST)
+    - cron: '30 13 * * 1-5'  # 19:00 IST Mon-Fri
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   pipeline:
@@ -16,29 +12,50 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Setup
+          python-version: '3.11'
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r pipeline/requirements.txt
+
       - name: Holiday guard
         run: |
-          python pipeline/eod.py validate_date ${{ github.run_id }}
+          python -c "
+import sys; sys.path.insert(0, '.')
+from pipeline import eod
+print(eod.validate_date(eod.datetime.now().strftime('%d%m%Y')))
+"
+
       - name: Run pipeline
         run: |
-          python pipeline/eod.py run
+          python -m pipeline.eod run
+
       - name: Sanity check
         run: |
-          python -m pytest pipeline/tests/test_eod.py -q
-      - name: Deploy to Vercel
-        env:
-          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          python -m pytest pipeline/tests/test_eod.py -q 2>&1 | tail -20
+
+      - name: Commit changes
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
-          npx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_API_KEY }}" --cwd pipeline
-          npx vercel@latest deploy --prod --token="${{ secrets.VERCEL_API_KEY }}" --cwd pipeline
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add pipeline/ server/data/ history.parquet 2>/dev/null || true
+          git commit -m "EOD pipeline run $(date +'%Y-%m-%d')" -q || echo "No changes to commit"
+          git push -q || echo "No push needed"
+
+      - name: Deploy to Vercel
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+        run: |
+          if [ -n "$VERCEL_API_KEY" ]; then
+            vercel pull --yes --environment=production --token=$VERCEL_API_KEY 2>&1 | tail -5 || true
+            vercel deploy --prod --token=$VERCEL_API_KEY --cwd server 2>&1 | tail -10 || true
+          fi

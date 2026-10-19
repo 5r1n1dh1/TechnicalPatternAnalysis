@@ -1,10 +1,7 @@
-name: Backfill
-# Secrets come from GitHub secrets (VERCEL_API_KEY, VERCEL_ORG_ID, VERCEL_PROJECT_ID, KAGGLE_API_KEY)
+name: Backfill Pipeline
+
 on:
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   backfill:
@@ -13,19 +10,27 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Setup
+          python-version: '3.11'
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r pipeline/requirements.txt
+
       - name: Run backfill
-        env:
-          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          KAGGLE_API_KEY: ${{ secrets.KAGGLE_API_KEY }}
         run: |
-          python pipeline/backfill.py
+          python -m pipeline.backfill
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add history.parquet pipeline/ 2>/dev/null || true
+          git commit -m "Backfill pipeline run $(date +'%Y-%m-%d')" -q || echo "No changes to commit"
+          git push -q || echo "No push needed"
