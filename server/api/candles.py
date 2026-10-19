@@ -110,7 +110,13 @@ def get_candles(
     if cache_file.exists():
         try:
             import pandas as pd
-            cached_df = pd.read_parquet(cache_file)
+            try:
+                cached_df = pd.read_parquet(cache_file)
+            except Exception:
+                try:
+                    cached_df = pd.read_parquet(cache_file, engine="pyarrow")
+                except Exception:
+                    cached_df = pd.read_parquet(cache_file, engine="fastparquet")
             if cached_df is not None and not cached_df.empty:
                 response = _process_candles(cached_df, symbol, interval_val, range_val, source="yahoo")
                 _cache[cache_key] = (response, datetime.now().timestamp())
@@ -237,7 +243,13 @@ def _fetch_from_kaggle(symbol: str):
         kaggle_file = Path(__file__).resolve().parents[1] / "data" / f"{symbol}.parquet"
         if kaggle_file.exists():
             import pandas as pd
-            df = pd.read_parquet(kaggle_file)
+            try:
+                df = pd.read_parquet(kaggle_file)
+            except Exception:
+                try:
+                    df = pd.read_parquet(kaggle_file, engine="pyarrow")
+                except Exception:
+                    df = pd.read_parquet(kaggle_file, engine="fastparquet")
             if df is not None and not df.empty:
                 # Ensure columns are named correctly
                 if 'Open' in df.columns:

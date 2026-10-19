@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Node/IDE
+.idea/
+*.iml
+.DS_Store
+
+# Local secrets
+.env
+.env.*
+kaggle.json
+*.key

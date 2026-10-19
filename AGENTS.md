@@ -19,6 +19,7 @@ Operating rules for all agents working in this repository. Follow every rule. Ru
 ## 3. Workflow
 
 - **Research and plan before execution.** Understand the existing code and confirm the approach before writing code. No guessing.
+- **Small-Model-Ready Implementation Plans:** When producing a plan or guide, create an exhaustive, granular breakdown containing exact file paths, precise function/class signatures, explicit data flows, edge cases, and step-by-step instructions. Every requirement must be concrete enough that a smaller model (10–30B parameters) can execute and recreate it fully without ambiguity or missing context.
 - **Never overengineer.** Simplest solution that works. No speculative abstractions, no unused config, no extra layers, no premature scaling.
 - **Always sync with GitHub.** Commit and push after each unit of work. Keep the remote current.
 

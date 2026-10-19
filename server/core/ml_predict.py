@@ -3,7 +3,7 @@ import os, json
 from datetime import datetime, timezone, timedelta
 from core.constants import PREDICTIONS_MAX_AGE_HRS
 
-PRED_FILE = "server/data/predictions.json"
+PRED_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "predictions.json")
 
 class StalePredictionsError(Exception):
     pass
