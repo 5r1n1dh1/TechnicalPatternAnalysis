@@ -336,6 +336,8 @@ This document defines the REST API endpoints for the server. All timestamps are 
 **Error responses:**
 - `500 Internal Server Error` if JSON malformed
 
+*M8: endpoint finalized; reads baked pipeline `scan.json`.*
+
 ## 10. Endpoint: `/api/decision`
 
 **Method:** `GET`
@@ -436,7 +438,7 @@ This document defines the REST API endpoints for the server. All timestamps are 
 | technicals | — | M4 |
 | fundamentals | — | M6 |
 | predictions | ✅ | — |
-| scan | — | M7 |
+| scan | ✅ | M8 |
 | decision | — | M7 |
 | tradeplan | — | M7 |
 | macro | — | M7 |
