@@ -1,22 +1,18 @@
 package com.tpa.app.ui.chart
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tpa.app.R
 import com.tpa.app.ui.chart.Range
 import com.tpa.app.ui.chart.Interval
-import com.tpa.app.ui.chart.ChartViewModel
 
 @Composable
 fun IntervalDropdown(
@@ -26,6 +22,7 @@ fun IntervalDropdown(
     onIntervalChange: (Interval) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val validIntervals = getValidIntervals(range)
     
     Box(
         modifier = Modifier
@@ -62,7 +59,6 @@ fun IntervalDropdown(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                val validIntervals = getValidIntervals(range)
                 validIntervals.forEach { intervalOption ->
                     DropdownMenuItem(
                         text = { Text(intervalOption.value) },
@@ -150,10 +146,10 @@ private fun getValidIntervals(range: Range): List<Interval> {
             Interval("3M"),
             Interval("6M"),
             Interval("1Y"),
-            "2Y",
-            "5Y",
-            "10Y"
+            Interval("2Y"),
+            Interval("5Y"),
+            Interval("10Y")
         )
-        else -> emptyList()
+        else -> emptyList<Interval>()
     }
 }

@@ -19,13 +19,6 @@ import com.tpa.app.ui.theme.glassSurface
 import com.tpa.app.ui.symbol.DecisionCard
 import com.tpa.app.network.NetworkModule
 
-// Minimal search result model (not in API contract; local for UI)
-data class SearchResult(
-    val symbol: String,
-    val name: String,
-    val sector: String
-)
-
 @Composable
 fun SearchScreen(modifier: Modifier = Modifier) {
     val api = NetworkModule.provideApi()

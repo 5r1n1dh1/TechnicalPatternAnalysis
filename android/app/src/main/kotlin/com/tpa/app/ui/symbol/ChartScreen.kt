@@ -24,18 +24,11 @@ import com.tpa.app.R
 import com.tpa.app.ui.chart.IntervalDropdown
 import com.tpa.app.ui.chart.RangeDropdown
 import com.tpa.app.ui.chart.PatternDropdown
-import com.tpa.app.ui.chart.ChartState
-import com.tpa.app.ui.chart.ChartViewModel
-import com.github.mikephil.charting.charts.CandleStickChart
-import com.github.mikephil.charting.components.XAxis
-import com.github.mikephil.charting.data.*
-import com.github.mikephil.charting.formatter.ValueFormatter
-import com.github.mikephil.charting.utils.ColorTemplate
-import com.tpa.app.R
 import com.tpa.app.network.NetworkModule
 import com.tpa.app.network.TpaApi
-import com.tpa.app.ui.chart.*
+import android.graphics.Color as AndroidColor
 import com.tpa.app.ui.theme.glassSurface
+import com.tpa.app.ui.chart.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -97,10 +90,9 @@ fun ChartScreen(
                 LaunchedEffect(state.symbol) { techVm.load(state.symbol) }
                 TechnicalScreen(technical = tech, decision = dec, modifier = Modifier.weight(1f))
             } else if (selectedTab == 0) {
-                Text("Fundamentals", color = ComposeColor.White)
+                Text("Fundamentals", color = Color.White)
             } else {
                 // Chart container
-            {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -116,13 +108,9 @@ fun ChartScreen(
                     isScaleXEnabled = true
                     isScaleYEnabled = true
                     isHighlightPerTapEnabled = true
-                    isHighlightPerTouchEnabled = true
                     
                     // Configure candlestick chart
-                    val colors = ColorTemplate.getColors(
-                        Color.GREEN,  // green up
-                        Color.RED    // red down
-                    )
+                    val colors = listOf(AndroidColor.GREEN, AndroidColor.RED)
                     
                     state.candles?.let { candles ->
                         val entries = ArrayList<CandleEntry>()
@@ -154,7 +142,7 @@ fun ChartScreen(
                         xAxis.position = XAxis.XAxisPosition.BOTTOM
                         xAxis.granularity = 1f
                         xAxis.valueFormatter = object : ValueFormatter() {
-                            override fun getFormattedValue(value: Float, axis: XAxis?): String {
+                            override fun getFormattedValue(value: Float, axis: com.github.mikephil.charting.components.AxisBase?): String {
                                 val date = Date(value.toLong())
                                 val formatter = SimpleDateFormat("MMM dd", Locale.US)
                                 return formatter.format(date)
@@ -241,7 +229,7 @@ fun ChartScreen(
             Text(
                 text = "Pattern Detections",
                 style = MaterialTheme.typography.titleSmall,
-                color = ComposeColor.White,
+                color = Color.White,
                 modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

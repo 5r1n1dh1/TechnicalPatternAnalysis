@@ -1,8 +1,5 @@
 package com.tpa.app.ui.symbol
 
-import androidx.compose.runtime.StateFlow
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tpa.app.network.Candle
@@ -10,13 +7,11 @@ import com.tpa.app.network.CandleResponse
 import com.tpa.app.network.Detection
 import com.tpa.app.network.TradePlanResponse
 import com.tpa.app.network.TpaApi
-import com.tpa.app.ui.chart.ChartState
 import com.tpa.app.ui.chart.Range
 import com.tpa.app.ui.chart.Interval
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import retrofit2.Response
 
 class ChartViewModel(
     private val api: TpaApi
@@ -36,8 +31,8 @@ class ChartViewModel(
             try {
                 val response = api.getCandles(
                     symbol = _state.value.symbol,
-                    interval = _state.value.interval,
-                    range = _state.value.range
+                    interval = _state.value.interval.value,
+                    range = _state.value.range.value
                 )
 
                 if (response.isSuccessful) {

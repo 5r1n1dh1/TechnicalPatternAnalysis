@@ -1,14 +1,18 @@
 package com.tpa.app.ui.chart
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tpa.app.network.Detection
 
 @Composable
@@ -25,7 +29,7 @@ fun DetectionChip(
         detection.risk_reward > 2 -> Color(0xFFFBBF24)
         else -> Color(0xFFF87171)
     }
-    val directionIcon = if (detection.direction == "bull") \u{1F4C8} else \u{1F4C9}
+    val directionIcon = if (detection.direction == "bull") "\uD83D\uDC8A" else "\uD83D\uDC89"
     val accentColor = if (detection.direction == "bull") Color(0xFF34D399) else Color(0xFFFF4444)
 
     Card(
@@ -33,7 +37,7 @@ fun DetectionChip(
             .fillMaxWidth()
             .then(
                 if (selected) Modifier.border(width = 2.dp, color = accentColor, shape = RoundedCornerShape(20.dp))
-                else Modifier.none()
+                else Modifier
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0x14FFFFFF))
@@ -63,10 +67,9 @@ fun DetectionChip(
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.width(6.dp))
-                    Icon(
-                        imageVector = null,
-                        contentDescription = null,
-                        tint = accentColor,
+                    Text(
+                        text = directionIcon,
+                        fontSize = 14.sp,
                         modifier = Modifier.size(16.dp)
                     )
                 }

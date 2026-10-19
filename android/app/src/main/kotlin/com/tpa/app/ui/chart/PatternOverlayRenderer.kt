@@ -62,7 +62,6 @@ class PatternOverlayRenderer(
             isScaleXEnabled = true
             isScaleYEnabled = true
             isHighlightPerTapEnabled = true
-            isHighlightPerTouchEnabled = true
         }
     }
 
@@ -127,7 +126,7 @@ class PatternOverlayRenderer(
             shadedSet.setDrawValues(false)
             shadedSet.setDrawCircles(false)
             shadedSet.fillColor = colorBgShade
-            shadedSet.isDrawFilledEnabled = true
+            shadedSet.setDrawFilled(true)
             shadedSet.setColor(colorBgShade)
             shadedSet.setHighlightEnabled(false)
             overlayDataSets.add(shadedSet)
