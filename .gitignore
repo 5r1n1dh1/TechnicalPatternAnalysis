@@ -16,3 +16,6 @@ venv/
 kaggle.json
 *.key
 /android/.gradle/
+
+# Generated ML artifacts (published as CI artifacts, never committed)
+/tpa-models/

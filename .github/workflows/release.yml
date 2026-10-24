@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     tags: ['v1.0.2']
+permissions:
+  contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -22,12 +24,16 @@ jobs:
           else
             echo "Tag $TAG exists; attaching release artifact..."
           fi
-      - name: Download release-apk artifact
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: release-apk
-          path: artifacts/
+      - name: Download release-apk from the latest successful CI run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=$(gh run list --workflow=ci.yml --branch=main --status=success --limit 1 --json databaseId -q '.[0].databaseId')
+          echo "latest successful CI run: ${RUN_ID:-none}"
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --name release-apk --dir artifacts || echo "download skipped"
+          fi
+          ls -l artifacts || true
       - name: Attach APK to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
