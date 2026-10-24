@@ -14,6 +14,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: npm i -g vercel@latest
+      - name: Pin project framework to fastapi
+        env:
+          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+        run: |
+          # Vercel zero-config only builds a FastAPI app when the project's
+          # framework preset is fastapi. Autodetection left it null, so the
+          # entrypoint was uploaded but never built as a Function.
+          curl -sS -X PATCH "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"framework":"fastapi"}' \
+            | head -c 300; echo
       - name: Deploy server
         id: deploy
         env:
