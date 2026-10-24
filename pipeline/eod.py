@@ -110,6 +110,11 @@ def fetch_yahoo_eod(symbol: str, date: str):
         if data.empty:
             raise ValueError(f"No data found for {symbol} on {date}")
         data = data.iloc[-1:]
+        # yf.download returns a MultiIndex (Price, Ticker) for a single symbol;
+        # flatten it or the renames below produce Series-valued columns that fail
+        # the Arrow write with "did not recognize Python value type".
+        if getattr(data.columns, "nlevels", 1) > 1:
+            data.columns = data.columns.get_level_values(0)
         data = data.rename(
             columns={
                 "Open": "open",
@@ -238,7 +243,8 @@ def run():
     if not validate_date(today):
         print(f"Warning: {today} is a holiday, skipping EOD pipeline")
         return pd.DataFrame()
-    symbols = ["^BSESN", "NIFTY50"]
+    # ^NSEI is the Yahoo ticker for NIFTY 50; "NIFTY50" is not a valid symbol.
+    symbols = ["^BSESN", "^NSEI"]
     merged_data = merge_eod(today, symbols)
     if merged_data is None or merged_data.empty:
         print("No new EOD data available; nothing to commit")
