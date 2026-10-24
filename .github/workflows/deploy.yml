@@ -57,6 +57,17 @@ jobs:
             if [ "$code" != "200" ]; then
               echo "::warning::Smoke test failed for $path (HTTP $code)"
               failed=1
+              continue
+            fi
+            # Guard against Vercel serving the Python source as a static asset
+            # (HTTP 200 but text/plain) or an opaque runtime crash.
+            if ! grep -q '"' /tmp/resp.json; then
+              echo "::warning::Smoke test failed for $path (body is not JSON)"
+              failed=1
+            fi
+            if grep -q 'FUNCTION_INVOCATION_FAILED' /tmp/resp.json; then
+              echo "::warning::Smoke test failed for $path (function invocation failed)"
+              failed=1
             fi
           done
           echo "SMOKE_FAILED=$failed" >> "$GITHUB_ENV"
