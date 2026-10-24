@@ -29,7 +29,14 @@ router = APIRouter()
 _cache = {}
 _CACHE_TTL = 12 * 60 * 60  # 12 hours in seconds
 _CACHED_CANDLES_DIR = Path(__file__).resolve().parents[1] / "data" / "cached_candles"
-_CACHED_CANDLES_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    _CACHED_CANDLES_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Serverless runtimes (Vercel) mount the bundle read-only; only /tmp is writable.
+    import tempfile
+
+    _CACHED_CANDLES_DIR = Path(tempfile.gettempdir()) / "cached_candles"
+    _CACHED_CANDLES_DIR.mkdir(parents=True, exist_ok=True)
 
 class Interval(str, Enum):
     interval_5m = "5m"
