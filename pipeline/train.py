@@ -9,6 +9,10 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import accuracy_score, log_loss, brier_score_loss
 
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pipeline.features import build_features, FEATURE_NAMES
 
 
