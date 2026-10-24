@@ -1,6 +1,23 @@
 """Shared bar loader for endpoints (no module-level yfinance/pandas import)."""
 
+# Intervals served by the baked daily dataset (daily or coarser).
+_DAILY_INTERVALS = ("1d", "1w", "1M")
+
+
 def load_bars(symbol: str, interval: str = "1d", range_str: str = "1Y"):
+    # Baked EOD dataset first: Yahoo rate-limits Vercel's datacenter IPs.
+    if interval in _DAILY_INTERVALS:
+        try:
+            try:
+                from core.baked import load_baked
+            except Exception:
+                from api.core.baked import load_baked  # type: ignore
+            baked = load_baked(symbol, range_str)
+            if baked is not None and len(baked) > 0:
+                return baked
+        except Exception:
+            pass
+
     import pandas as pd
     try:
         import yfinance as yf

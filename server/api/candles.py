@@ -131,10 +131,20 @@ def get_candles(
         except Exception:
             pass
 
-    # Try Yahoo Finance primary
+    # Baked EOD dataset first: Yahoo rate-limits Vercel's datacenter IPs.
+    try:
+        df = _fetch_from_baked(symbol, interval_val, range_val)
+        if df is not None and not df.empty:
+            response = _process_candles(df, symbol, interval_val, range_val, source="eod")
+            _cache[cache_key] = (response, datetime.now().timestamp())
+            return response
+    except Exception:
+        pass  # Guarded fallback
+
+    # Live Yahoo fallback
     try:
         df = _fetch_from_yahoo(symbol, interval_val, range_val)
-        if df is not None:
+        if df is not None and not df.empty:
             response = _process_candles(df, symbol, interval_val, range_val, source="yahoo")
             _cache[cache_key] = (response, datetime.now().timestamp())
             return response
@@ -191,8 +201,22 @@ def _process_candles(df, symbol: str, interval: str, range_val: str, source: str
     )
 
 
+def _fetch_from_baked(symbol: str, interval: str, range_val: str):
+    """Read the committed EOD candle dataset. No network; daily-or-coarser only."""
+    if interval not in ("1d", "1w", "1M"):
+        return None
+    try:
+        from core.baked import load_baked
+    except Exception:
+        try:
+            from api.core.baked import load_baked  # type: ignore
+        except Exception:
+            return None
+    return load_baked(symbol, range_val)
+
+
 def _fetch_from_yahoo(symbol: str, interval: str, range_val: str):
-    """Fetch from Yahoo Finance - primary source."""
+    """Fetch bars from live Yahoo Finance. Returns a DataFrame or None."""
     try:
         import yfinance as yf
         import pandas as pd

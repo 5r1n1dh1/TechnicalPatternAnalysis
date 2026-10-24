@@ -108,7 +108,9 @@ def test_candles_kaggle(client: TestClient):
 
     import api.candles as candles_mod
     orig_yahoo = candles_mod._fetch_from_yahoo
+    orig_baked = candles_mod._fetch_from_baked
     candles_mod._fetch_from_yahoo = lambda *a, **k: None
+    candles_mod._fetch_from_baked = lambda *a, **k: None
     try:
         response = client.get("/api/candles", params={
             "symbol": "RELIANCE",
@@ -119,6 +121,7 @@ def test_candles_kaggle(client: TestClient):
         assert response.json()["detail"] == "Candle data not found"
     finally:
         candles_mod._fetch_from_yahoo = orig_yahoo
+        candles_mod._fetch_from_baked = orig_baked
 
 def test_candles_not_found(client: TestClient):
     """Test that 404 is returned for unknown symbols."""
