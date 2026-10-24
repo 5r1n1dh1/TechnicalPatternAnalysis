@@ -1,0 +1,61 @@
+name: Vercel Runtime Diagnostics
+
+# Manual only. Use this to pull the Vercel runtime stack trace for the
+# production alias and to test requests around Deployment Protection.
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+      BASE_URL: https://myaiinvestment.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: vercel whoami + list (last 10 lines)
+        run: |
+          vercel whoami --token="$VERCEL_API_KEY" 2>&1 || true
+          echo "=== vercel list (tail -10) ==="
+          vercel list --token="$VERCEL_API_KEY" --cwd server 2>&1 | tail -n 10 || true
+
+      - name: vercel inspect --logs (FULL output)
+        run: |
+          echo "=== vercel inspect --logs ($BASE_URL) ==="
+          vercel inspect "$BASE_URL" --logs --token="$VERCEL_API_KEY" 2>&1 || true
+          echo
+          echo "=== vercel inspect --logs ($BASE_URL, --cwd server) ==="
+          vercel inspect "$BASE_URL" --logs --token="$VERCEL_API_KEY" --cwd server 2>&1 || true
+
+      - name: curl /api/health with headers (x2)
+        run: |
+          for i in 1 2; do
+            echo "=== curl attempt $i: $BASE_URL/api/health ==="
+            curl -sS -D - --max-time 20 "$BASE_URL/api/health" 2>&1 || true
+            echo
+          done
+
+      - name: vercel curl /api/health (bypass Deployment Protection)
+        run: |
+          echo "=== vercel curl $BASE_URL/api/health ==="
+          vercel curl "$BASE_URL/api/health" --token="$VERCEL_API_KEY" 2>&1 || true
+
+      - name: curl bodies (/api/health, /api/search)
+        if: always()
+        run: |
+          echo "=== /api/health body ==="
+          curl -sS --max-time 20 "$BASE_URL/api/health" 2>&1 || true
+          echo
+          echo "=== /api/search body ==="
+          curl -sS --max-time 20 "$BASE_URL/api/search?q=RELIANCE" 2>&1 || true
+          echo

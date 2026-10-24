@@ -31,9 +31,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: ${{ vars.VERCEL_PROD_URL || 'https://myaiinvestment.vercel.app' }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm i -g vercel@latest
+      # Records failures instead of exiting, so the log-dump step always runs.
       - name: Smoke test production endpoints
+        id: smoke
         run: |
+          echo "SMOKE_FAILED=0" >> "$GITHUB_ENV"
+          failed=0
           echo "Smoke-testing $BASE_URL"
           for path in "/api/health" "/api/search?q=RELIANCE"; do
             code=$(curl -s -o /tmp/resp.json -w '%{http_code}' -L --max-time 10 "$BASE_URL$path" || true)
@@ -45,8 +55,27 @@ jobs:
             echo "$path -> HTTP $code"
             head -c 500 /tmp/resp.json; echo
             if [ "$code" != "200" ]; then
-              echo "::error::Smoke test failed for $path (HTTP $code)"
-              exit 1
+              echo "::warning::Smoke test failed for $path (HTTP $code)"
+              failed=1
             fi
           done
+          echo "SMOKE_FAILED=$failed" >> "$GITHUB_ENV"
+          echo "Smoke results recorded (SMOKE_FAILED=$failed); dumping runtime logs next"
+      - name: Dump Vercel runtime logs
+        if: always()
+        env:
+          VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
+        run: |
+          echo "=== vercel inspect --logs ($BASE_URL) ==="
+          vercel inspect "$BASE_URL" --logs --token="$VERCEL_API_KEY" 2>&1 || true
+          echo
+          echo "=== vercel inspect --logs ($BASE_URL, --cwd server) ==="
+          vercel inspect "$BASE_URL" --logs --token="$VERCEL_API_KEY" --cwd server 2>&1 || true
+      - name: Fail if smoke test failed
+        if: always()
+        run: |
+          if [ "${SMOKE_FAILED:-0}" != "0" ]; then
+            echo "::error::Smoke test failed; see Vercel runtime logs above"
+            exit 1
+          fi
           echo "Smoke test passed"
