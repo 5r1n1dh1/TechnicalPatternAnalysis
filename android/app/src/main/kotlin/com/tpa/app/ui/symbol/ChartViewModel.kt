@@ -24,54 +24,51 @@ class ChartViewModel(
         fetchCandles()
     }
 
+    fun setSymbol(symbol: String) {
+        val cleaned = symbol.trim().uppercase()
+        if (cleaned.isBlank()) return
+        _state.value = _state.value.copy(symbol = cleaned, selectedPattern = null, tradePlan = null)
+        fetchCandles()
+        loadPatterns()
+    }
+
     fun fetchCandles() {
         viewModelScope.launch {
-            _state.value = ChartState(isLoading = true)
+            // Preserve symbol/range/interval and previously loaded data while refreshing.
+            _state.value = _state.value.copy(isLoading = true, error = null)
+
+            val current = _state.value
+            if (current.symbol.isBlank()) {
+                _state.value = current.copy(isLoading = false)
+                return@launch
+            }
 
             try {
                 val response = api.getCandles(
-                    symbol = _state.value.symbol,
-                    interval = _state.value.interval.value,
-                    range = _state.value.range.value
+                    symbol = current.symbol,
+                    interval = current.interval.value,
+                    range = current.range.value
                 )
 
                 if (response.isSuccessful) {
                     val candles = response.body()?.candles ?: emptyList()
-                    _state.value = ChartState(
+                    _state.value = _state.value.copy(
                         isLoading = false,
                         error = null,
-                        candles = candles,
-                        symbol = _state.value.symbol,
-                        sector = _state.value.sector,
-                        trend = _state.value.trend,
-                        eodPrice = _state.value.eodPrice,
-                        interval = _state.value.interval,
-                        range = _state.value.range
+                        candles = candles
                     )
                 } else {
-                    _state.value = ChartState(
+                    _state.value = _state.value.copy(
                         isLoading = false,
                         error = "Failed to fetch data: ${response.code()}",
-                        candles = emptyList(),
-                        symbol = _state.value.symbol,
-                        sector = _state.value.sector,
-                        trend = _state.value.trend,
-                        eodPrice = _state.value.eodPrice,
-                        interval = _state.value.interval,
-                        range = _state.value.range
+                        candles = emptyList()
                     )
                 }
             } catch (e: Exception) {
-                _state.value = ChartState(
+                _state.value = _state.value.copy(
                     isLoading = false,
                     error = "Network error: ${e.message}",
-                    candles = emptyList(),
-                    symbol = _state.value.symbol,
-                    sector = _state.value.sector,
-                    trend = _state.value.trend,
-                    eodPrice = _state.value.eodPrice,
-                    interval = _state.value.interval,
-                    range = _state.value.range
+                    candles = emptyList()
                 )
             }
         }

@@ -1,8 +1,9 @@
 __pycache__/
+**/__pycache__/
 *.py[cod]
-*.so
-*.egg
-*.egg-info
+*.pyc
+scripts/
+data/*.parquet
 .Python
 env/
 venv/
