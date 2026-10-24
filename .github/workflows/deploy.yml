@@ -18,7 +18,7 @@ jobs:
         id: deploy
         env:
           VERCEL_API_KEY: ${{ secrets.VERCEL_API_KEY }}
-        run: npx vercel@latest deploy --prod --token=$VERCEL_API_KEY --cwd server -e TPA_DEBUG_ERRORS=1
+        run: npx vercel@latest deploy --prod --token=$VERCEL_API_KEY --cwd server --env TPA_DEBUG_ERRORS=1
       - name: Verify smoke (production)
         run: |
           URL="${VERCEL_PROD_URL:-https://myaiinvestment.vercel.app}"
