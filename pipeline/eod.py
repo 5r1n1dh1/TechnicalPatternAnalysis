@@ -62,7 +62,10 @@ def fetch_bhavcopy(date: str):
         response = None
 
     if response is None or not getattr(response, "ok", False):
-        raise Exception(f"Failed to get data for {date}")
+        # NSE source unavailable/blocked: degrade gracefully instead of aborting
+        # the whole pipeline. The Yahoo leg in merge_eod still runs.
+        print(f"Warning: NSE bhavcopy unavailable for {date}; continuing without NSE data")
+        return pd.DataFrame()
 
     try:
         csv_content = response.text
@@ -72,7 +75,8 @@ def fetch_bhavcopy(date: str):
         df = pd.DataFrame()
 
     if df.empty:
-        raise Exception(f"No data returned for {date}")
+        print(f"Warning: No NSE data returned for {date}; continuing without NSE data")
+        return pd.DataFrame()
 
     # Keep expected columns if they exist
     keep_cols = ["SC_CODE", "SC_NAME", "OPEN", "HIGH", "LOW", "CLOSE", "LAST", "VOLUME", "TOTALTRADEVALUE"]
@@ -233,9 +237,12 @@ def run():
     today = datetime.now().strftime("%d%m%Y")
     if not validate_date(today):
         print(f"Warning: {today} is a holiday, skipping EOD pipeline")
-        return
+        return pd.DataFrame()
     symbols = ["^BSESN", "NIFTY50"]
     merged_data = merge_eod(today, symbols)
+    if merged_data is None or merged_data.empty:
+        print("No new EOD data available; nothing to commit")
+        return pd.DataFrame()
     try:
         # Append + versioned if history exists
         out_path = "history.parquet"
@@ -243,9 +250,11 @@ def run():
             try:
                 hist = pd.read_parquet(out_path)
                 merged_data = pd.concat([hist, merged_data], ignore_index=True)
-                merged_data = merged_data.drop_duplicates(subset=["symbol", "date"], keep="last")
-            except Exception:
-                pass
+                subset = [c for c in ("SC_CODE", "symbol", "date") if c in merged_data.columns]
+                if subset:
+                    merged_data = merged_data.drop_duplicates(subset=subset, keep="last")
+            except Exception as e:
+                print(f"Warning: could not merge existing history: {e}")
         merged_data.to_parquet(out_path, index=False)
         print(f"Saved {len(merged_data)} rows to {out_path}")
         # Create versioned copy

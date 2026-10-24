@@ -127,9 +127,8 @@ def test_merge_eod_price_discrepancy():
     assert "Warning: Price discrepancy for" in captured_output.getvalue()
 
 def test_run_dry_run():
-    """Test that run function works in dry-run mode."""
-    # This is a complex test that would require mocking
-    # For now, we'll just check that it doesn't raise errors
-    with pytest.raises(Exception) as e:
-        run()
-    assert "Error" not in str(e.value)  # Should not raise specific error
+    """run() must exit cleanly (no exception) and write nothing when no data is available."""
+    with patch('pipeline.eod.validate_date', return_value=True), \
+         patch('pipeline.eod.merge_eod', return_value=pd.DataFrame()):
+        result = run()
+    assert result is not None and result.empty
