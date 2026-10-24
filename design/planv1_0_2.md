@@ -607,8 +607,8 @@ Screener, extra pattern families, thesis cards, live/intraday-by-default charts,
 | T-22 | Vercel entrypoint + framework preset | P0 | W4 | [x] done — `server/index.py` is the zero-config FastAPI entrypoint; project framework pinned to `fastapi` |
 | T-23 | Serverless read-only filesystem | P0 | W4 | [x] done — candle cache falls back to a temp dir (`/var/task` is read-only) |
 | T-24 | yfinance MultiIndex flattening | P0 | W4 | [x] done — `core/bars.py`, `api/candles.py`, `pipeline/eod.py`; MultiIndex was silently killing every fetch |
-| T-25 | Bake EOD candle dataset into the bundle | P0 | W4 | [ ] in progress — live yfinance from Vercel is rate-limited; serving baked data instead |
-| T-26 | Android DTO ↔ server contract alignment | P0 | W4 | [ ] in progress — real responses must populate every displayed field |
+| T-25 | Bake EOD candle dataset into the bundle | P0 | W4 | [x] done — `pipeline/bake.py` + `core/baked.py`; 499 symbols / 122,319 rows in `server/data/candles.parquet` (2.2 MB); prod source=`eod`, 100% reliable over 3 sweeps |
+| T-26 | Android DTO ↔ server contract alignment | P0 | W4 | [x] done — DTOs matched to live JSON; Technicals + Fundamentals tabs wired; signed APK 3,190,217 B |
 | T-27 | ML training workflow | P0 | W4 | [x] done — `ml-train.yml` green; trainer degrades to stub artifacts on thin history |
 
 **Wave gates:** W0 → T-01..T-04 green ✅; W1 → T-05..T-08 green ✅; W2 → signed APK artifact exists ✅; W3 → EOD + ML workflows green ✅; W4 → production endpoints verified, release published, baked data shipped.
