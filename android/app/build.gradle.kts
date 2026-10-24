@@ -26,6 +26,10 @@ android {
         release {
             isMinifyEnabled = !project.hasProperty("minifyEnabled") || project.property("minifyEnabled").toString() != "false"
             isShrinkResources = true
+            // CI produces an installable APK. No production keystore exists yet,
+            // so release is signed with the throwaway debug key; swap this for a
+            // keystore-backed signingConfig from secrets before a public release.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

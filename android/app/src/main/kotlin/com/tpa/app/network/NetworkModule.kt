@@ -20,9 +20,16 @@ object NetworkModule {
         val baseUrl = BuildConfig.BASE_URL
         
         return remember(context, baseUrl) {
+            // Server payloads carry extra fields (symbol/asOf/provenance/v, etc.) and may
+            // send nulls for optional values; be lenient so real responses deserialize.
+            val json = Json {
+                ignoreUnknownKeys = true
+                coerceInputValues = true
+                explicitNulls = false
+            }
             Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
+                .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .build()
                 .create(TpaApi::class.java)
         }
