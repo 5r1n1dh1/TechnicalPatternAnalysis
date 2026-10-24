@@ -79,7 +79,10 @@ def find_pivots(
         List of SwingPivot objects in chronological order.
     """
     import numpy as np
-    from scipy.signal import find_peaks
+    try:
+        from scipy.signal import find_peaks
+    except ImportError:
+        from ._peaks import find_peaks
     # Apply smoothing if requested
     if use_smoothing and len(high) > 4:
         high_smooth = sma5_smooth(high)

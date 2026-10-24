@@ -29,7 +29,10 @@ def rsi_divergence(close: np.ndarray, rsi_vals: np.ndarray, lookback: int = 40) 
 
 def _find_pivots(arr: np.ndarray) -> tuple[list[int], list[int]]:
     import numpy as np
-    from scipy.signal import find_peaks
+    try:
+        from scipy.signal import find_peaks
+    except ImportError:
+        from ._peaks import find_peaks
     lows, _ = find_peaks(-arr, distance=3)
     highs, _ = find_peaks(arr, distance=3)
     return list(lows), list(highs)

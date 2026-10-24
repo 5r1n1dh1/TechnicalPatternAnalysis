@@ -55,9 +55,8 @@ def detect_structure(candles: pd.DataFrame, lookback: int = 150) -> StructureSta
     import pandas as pd
     try:
         from scipy.signal import find_peaks
-    except Exception:
-        def find_peaks(*args, **kwargs):
-            raise ImportError("scipy is required")
+    except ImportError:
+        from ._peaks import find_peaks
     if len(candles) < lookback:
         lookback = len(candles)
     if lookback < 20:
