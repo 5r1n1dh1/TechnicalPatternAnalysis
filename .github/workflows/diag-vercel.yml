@@ -29,6 +29,14 @@ jobs:
           echo "=== vercel list (tail -10) ==="
           vercel list --token="$VERCEL_API_KEY" --cwd server 2>&1 | tail -n 10 || true
 
+      - name: Project settings via REST API
+        run: |
+          echo "=== GET /v9/projects/\$VERCEL_PROJECT_ID ==="
+          curl -sS "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_API_KEY" \
+            | python3 -c "import sys,json;d=json.load(sys.stdin);print(json.dumps({k:d.get(k) for k in ['name','framework','rootDirectory','buildCommand','installCommand','outputDirectory','nodeVersion','devCommand','ignoreCommand','settings','autoExposeSystemEnvs']},indent=2))" \
+            2>&1 || true
+
       - name: vercel inspect --logs (FULL output)
         run: |
           echo "=== vercel inspect --logs ($BASE_URL) ==="
