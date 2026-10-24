@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.tpa.app.network.Candle
 import com.tpa.app.network.CandleResponse
 import com.tpa.app.network.Detection
-import com.tpa.app.network.TradePlanResponse
 import com.tpa.app.network.TpaApi
 import com.tpa.app.ui.chart.Range
 import com.tpa.app.ui.chart.Interval
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class ChartViewModel(
     private val api: TpaApi
@@ -30,6 +30,8 @@ class ChartViewModel(
         _state.value = _state.value.copy(symbol = cleaned, selectedPattern = null, tradePlan = null)
         fetchCandles()
         loadPatterns()
+        loadTrend()
+        loadMeta()
     }
 
     fun fetchCandles() {
@@ -52,10 +54,12 @@ class ChartViewModel(
 
                 if (response.isSuccessful) {
                     val candles = response.body()?.candles ?: emptyList()
+                    val eod = candles.lastOrNull()?.c?.let { String.format(Locale.US, "%.2f", it) } ?: ""
                     _state.value = _state.value.copy(
                         isLoading = false,
                         error = null,
-                        candles = candles
+                        candles = candles,
+                        eodPrice = eod
                     )
                 } else {
                     _state.value = _state.value.copy(
@@ -74,16 +78,54 @@ class ChartViewModel(
         }
     }
 
+    /** /api/trend -> {"label","strength","ema20","ema50","adx"}. */
+    fun loadTrend() {
+        viewModelScope.launch {
+            val current = _state.value
+            if (current.symbol.isBlank()) return@launch
+            try {
+                val trend = api.getTrend(
+                    symbol = current.symbol,
+                    interval = current.interval.value,
+                    range = current.range.value
+                )
+                _state.value = _state.value.copy(trend = trend.label, trendStrength = trend.strength)
+            } catch (_: Exception) {
+                // Leave any previously shown trend; header stays usable.
+            }
+        }
+    }
+
+    /** Resolve symbol name/sector from /api/search for the chart header. */
+    fun loadMeta() {
+        viewModelScope.launch {
+            val current = _state.value
+            if (current.symbol.isBlank()) return@launch
+            try {
+                val results = api.search(current.symbol)
+                val match = results.firstOrNull { it.symbol.equals(current.symbol, ignoreCase = true) }
+                    ?: results.firstOrNull()
+                if (match != null) {
+                    _state.value = _state.value.copy(sector = match.sector)
+                }
+            } catch (_: Exception) {
+                // Sector is optional; keep whatever we have.
+            }
+        }
+    }
+
     fun updateInterval(interval: Interval) {
         _state.value = _state.value.copy(interval = interval)
         fetchCandles()
         loadPatterns()
+        loadTrend()
     }
 
     fun updateRange(range: Range) {
         _state.value = _state.value.copy(range = range)
         fetchCandles()
         loadPatterns()
+        loadTrend()
     }
 
     fun loadPatterns() {
@@ -91,16 +133,19 @@ class ChartViewModel(
             _state.value = _state.value.copy(patternsLoading = true, patternsError = null)
 
             try {
-                val patternFilter = _state.value.selectedPattern ?: "all"
+                val current = _state.value
+                // Only forward a real server pattern enum; "all"/null means no filter.
+                val patternFilter = current.selectedPattern
+                    ?.takeIf { it.isNotBlank() && it != "all" && it != "ALL" }
                 val response = api.getPatterns(
-                    symbol = _state.value.symbol,
-                    interval = _state.value.interval.value,
-                    range = _state.value.range.value,
+                    symbol = current.symbol,
+                    interval = current.interval.value,
+                    range = current.range.value,
                     pattern = patternFilter
                 )
 
                 if (response.isSuccessful) {
-                    val patterns = response.body()?.patterns ?: emptyList()
+                    val patterns = response.body()?.detections ?: emptyList()
                     _state.value = _state.value.copy(
                         patternsLoading = false,
                         patternsError = null,
@@ -121,22 +166,23 @@ class ChartViewModel(
         }
     }
 
-    fun loadTradePlan(patternId: String) {
+    /** Load the trade plan for a real server pattern name (head_and_shoulders, ...). */
+    fun loadTradePlan(patternName: String) {
+        if (patternName.isBlank() || patternName == "all") return
         viewModelScope.launch {
             _state.value = _state.value.copy(tradePlanLoading = true, tradePlanError = null)
 
             try {
                 val response = api.getTradePlan(
                     symbol = _state.value.symbol,
-                    pattern = patternId
+                    pattern = patternName
                 )
 
                 if (response.isSuccessful) {
-                    val tradePlan = response.body()
                     _state.value = _state.value.copy(
                         tradePlanLoading = false,
                         tradePlanError = null,
-                        tradePlan = tradePlan
+                        tradePlan = response.body()?.active?.firstOrNull()
                     )
                 } else {
                     _state.value = _state.value.copy(
@@ -153,8 +199,12 @@ class ChartViewModel(
         }
     }
 
-    fun selectPattern(patternId: String) {
+    fun selectPattern(patternId: String, patternName: String? = null) {
         _state.value = _state.value.copy(selectedPattern = patternId)
-        loadTradePlan(patternId)
+        if (patternName != null) {
+            loadTradePlan(patternName)
+        } else {
+            _state.value = _state.value.copy(tradePlan = null)
+        }
     }
 }

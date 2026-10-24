@@ -61,14 +61,15 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
         )
 
         // Component scores row
-        if (decision.component_scores.isNotEmpty()) {
+        val componentScores = decision.resolvedComponentScores
+        if (componentScores.isNotEmpty()) {
             Text(
                 text = "Component Scores",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFF94A3B8)
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                decision.component_scores.take(5).forEach { score: ComponentScore ->
+                componentScores.take(5).forEach { score: ComponentScore ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = score.component,
@@ -108,14 +109,15 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
         }
 
         // Red flags card
-        if (decision.red_flags.isNotEmpty()) {
+        val redFlags = decision.resolvedRedFlags
+        if (redFlags.isNotEmpty()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Red Flags",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFFF87171)
             )
-            decision.red_flags.forEach { flag: RedFlag ->
+            redFlags.forEach { flag: RedFlag ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier

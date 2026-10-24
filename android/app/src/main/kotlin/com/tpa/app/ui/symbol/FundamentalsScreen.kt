@@ -92,34 +92,11 @@ private fun ProfitabilityCard(p: Profitability) {
 private fun RatioGridCard(ratios: List<RatioItem>) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
         Text("Ratio Grid", style = MaterialTheme.typography.titleMedium)
-        val list = if (ratios.isNotEmpty()) ratios else listOf(
-            RatioItem("Current Ratio", null, "missing"),
-            RatioItem("Quick Ratio", null, "missing"),
-            RatioItem("D/E", null, "missing"),
-            RatioItem("Interest Cov", null, "missing"),
-            RatioItem("Asset Turn", null, "missing"),
-            RatioItem("DSO", null, "missing"),
-            RatioItem("DPO", null, "missing"),
-            RatioItem("CCC", null, "missing"),
-            RatioItem("PE", null, "missing"),
-            RatioItem("PB", null, "missing"),
-            RatioItem("EV/EBITDA", null, "missing"),
-            RatioItem("Div Yield", null, "missing"),
-            RatioItem("PEG", null, "missing"),
-            RatioItem("FCF Yield", null, "missing"),
-            RatioItem("ROIC", null, "missing"),
-            RatioItem("Op Margin", null, "missing"),
-            RatioItem("Rev Growth", null, "missing"),
-            RatioItem("EPS Growth", null, "missing"),
-            RatioItem("FCF Growth", null, "missing"),
-            RatioItem("Book/Share", null, "missing"),
-            RatioItem("Cash/Share", null, "missing"),
-            RatioItem("Total Debt", null, "missing"),
-            RatioItem("Net Debt", null, "missing"),
-            RatioItem("Equity", null, "missing"),
-            RatioItem("Total Assets", null, "missing")
-        )
-        val chunked = list.chunked(3)
+        if (ratios.isEmpty()) {
+            Text("unavailable", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+        val chunked = ratios.chunked(3)
         chunked.forEach { row ->
             Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                 row.forEach { item ->
@@ -152,7 +129,7 @@ private fun QuarterlyTableCard(results: List<QuarterlyResult>) {
                 Text(String.format("%,.0f", r.rev), style = MaterialTheme.typography.bodySmall)
                 Text(String.format("%,.0f", r.pat), style = MaterialTheme.typography.bodySmall)
                 Text(String.format("%.2f", r.eps), style = MaterialTheme.typography.bodySmall)
-                Text(String.format("%.1f%%", r.yoyRev), style = MaterialTheme.typography.bodySmall)
+                Text(r.yoyRev?.let { String.format("%.1f%%", it) } ?: "—", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -168,9 +145,9 @@ private fun AnnualStatementsCard(s: AnnualStatements) {
         }
         if (expanded) {
             Divider()
-            Text("P&L — Rev: ${String.format("%,.0f", s.pnl.revenue)}, PAT: ${String.format("%,.0f", s.pnl.pat)}", style = MaterialTheme.typography.bodySmall)
-            Text("Balance — Assets: ${String.format("%,.0f", s.balanceSheet.totalAssets)}, Debt: ${String.format("%,.0f", s.balanceSheet.totalDebt)}, Equity: ${String.format("%,.0f", s.balanceSheet.equity)}", style = MaterialTheme.typography.bodySmall)
-            Text("Cash Flow — OCF: ${String.format("%,.0f", s.cashFlow.ocf)}, CapEx: ${String.format("%,.0f", s.cashFlow.capex)}, FCF: ${s.cashFlow.fcf?.let { String.format("%,.0f", it) } ?: "—"}", style = MaterialTheme.typography.bodySmall)
+            Text("P&L — Rev: ${num(s.pnl.revenue)}, PAT: ${num(s.pnl.pat)}", style = MaterialTheme.typography.bodySmall)
+            Text("Balance — Assets: ${num(s.balanceSheet.totalAssets)}, Debt: ${num(s.balanceSheet.totalDebt)}, Equity: ${num(s.balanceSheet.equity)}", style = MaterialTheme.typography.bodySmall)
+            Text("Cash Flow — OCF: ${num(s.cashFlow.ocf)}, CapEx: ${num(s.cashFlow.capex)}, FCF: ${num(s.cashFlow.fcf)}", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -225,6 +202,10 @@ private fun CorporateActionsCard(ca: List<CorporateAction>) {
 private fun DcfCard(d: DcfEstimate) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
         Text("DCF Estimate", style = MaterialTheme.typography.titleMedium)
+        if (d.equityValuePerShare == null && d.upsidePercent == null) {
+            Text("unavailable", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
         Row(horizontalArrangement = Arrangement.SpaceEvenly) {
             MetricCol("WACC", String.format("%.1f%%", d.wacc * 100))
             MetricCol("Term g", String.format("%.1f%%", d.terminalGrowth * 100))
@@ -233,6 +214,9 @@ private fun DcfCard(d: DcfEstimate) {
         }
     }
 }
+
+/** Format a nullable numeric value, rendering "—" when the server omits it. */
+private fun num(value: Double?): String = value?.let { String.format("%,.0f", it) } ?: "—"
 
 @Composable
 private fun Metric(label: String, value: Double?, provenance: String) {

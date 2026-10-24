@@ -24,13 +24,16 @@ fun DetectionChip(
     val confidenceColor = if (detection.confidence >= 70) Color(0xFF34D399) else {
         if (detection.confidence >= 45) Color(0xFFFBBF24) else Color(0xFFF87171)
     }
+    val rr = detection.risk_reward
     val rrColor = when {
-        detection.risk_reward >= 3 -> Color(0xFF34D399)
-        detection.risk_reward > 2 -> Color(0xFFFBBF24)
+        rr == null -> Color(0xFF94A3B8)
+        rr >= 3 -> Color(0xFF34D399)
+        rr > 2 -> Color(0xFFFBBF24)
         else -> Color(0xFFF87171)
     }
-    val directionIcon = if (detection.direction == "bull") "\uD83D\uDC8A" else "\uD83D\uDC89"
-    val accentColor = if (detection.direction == "bull") Color(0xFF34D399) else Color(0xFFFF4444)
+    val isBull = detection.direction.lowercase().startsWith("bull")
+    val directionIcon = if (isBull) "\uD83D\uDC8A" else "\uD83D\uDC89"
+    val accentColor = if (isBull) Color(0xFF34D399) else Color(0xFFFF4444)
 
     Card(
         modifier = Modifier
@@ -100,7 +103,7 @@ fun DetectionChip(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "${detection.risk_reward}",
+                    text = rr?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—",
                     style = MaterialTheme.typography.labelSmall,
                     color = rrColor,
                     fontWeight = FontWeight.Bold

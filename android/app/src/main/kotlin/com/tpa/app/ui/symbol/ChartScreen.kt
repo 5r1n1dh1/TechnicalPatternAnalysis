@@ -110,13 +110,15 @@ private fun ChartContent(
                 )
                 Spacer(Modifier.width(8.dp))
                 if (state.trend.isNotBlank()) {
-                    val trendColor = when (state.trend.uppercase(Locale.US)) {
-                        "UP", "BULLISH" -> UpColor
-                        "DOWN", "BEARISH" -> DownColor
+                    val t = state.trend.lowercase(Locale.US)
+                    val trendColor = when {
+                        t.contains("up") || t.contains("bull") -> UpColor
+                        t.contains("down") || t.contains("bear") -> DownColor
                         else -> MutedColor
                     }
+                    val trendText = if (state.trendStrength > 0) "${state.trend} ${state.trendStrength}%" else state.trend
                     Text(
-                        text = state.trend,
+                        text = trendText,
                         color = trendColor,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -229,7 +231,7 @@ private fun ChartContent(
                     DetectionChip(
                         detection = detection,
                         selected = state.selectedPattern == detection.id,
-                        onClick = { viewModel.selectPattern(detection.id) }
+                        onClick = { viewModel.selectPattern(detection.id, detection.patternName) }
                     )
                 }
             }
@@ -244,27 +246,31 @@ private fun ChartContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Trade Plan",
+                        text = if (plan.pattern.isNotBlank()) "Trade Plan · ${plan.pattern}" else "Trade Plan",
                         style = MaterialTheme.typography.titleSmall,
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "R:R ${String.format(Locale.US, "%.2f", plan.risk_reward)}",
-                        color = if (plan.risk_reward >= 3) UpColor else if (plan.risk_reward >= 2) Color(0xFFFBBF24) else DownColor,
+                        text = "R:R ${String.format(Locale.US, "%.2f", plan.rr)}",
+                        color = if (plan.rr >= 3) UpColor else if (plan.rr >= 2) Color(0xFFFBBF24) else DownColor,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    PlanMetric("Entry", plan.entry_price, UpColor)
-                    PlanMetric("Stop", plan.stop_price, DownColor)
-                    PlanMetric("Target", plan.target_price, UpColor)
+                    PlanMetric("Entry", plan.entry.price, UpColor)
+                    PlanMetric("Stop", plan.stop.price, DownColor)
+                    PlanMetric("Target", plan.target.price, UpColor)
                 }
                 if (plan.invalidation.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
                     Text("Invalidation: ${plan.invalidation}", color = MutedColor, fontSize = 11.sp)
+                }
+                if (plan.positionSize > 0) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Position size: ${plan.positionSize}", color = MutedColor, fontSize = 11.sp)
                 }
             }
         }
@@ -471,7 +477,7 @@ private fun CandleStickCard(
             }
             chart.data = CandleData(dataSet)
 
-            val overlay = selected?.let { toOverlay(it) }
+            val overlay = selected?.let { toOverlay(it, candles) }
             if (overlay != null && overlay.anchors.isNotEmpty()) {
                 PatternOverlayRenderer(chart, chart.viewPortHandler).drawPatternOverlay(overlay)
             }
@@ -482,23 +488,40 @@ private fun CandleStickCard(
     )
 }
 
-private fun toOverlay(detection: Detection): PatternOverlay = PatternOverlay(
-    anchors = detection.anchors.map { AnchorPoint(it.candle_index, it.price) },
-    neckline = detection.neckline?.let {
-        NecklineInfo(
-            it.candle_index.toFloat(),
-            it.price.toFloat(),
-            it.candle_index.toFloat(),
-            it.price.toFloat()
-        )
-    },
-    targetPrice = detection.target_price,
-    stopPrice = detection.stop_price,
-    patternName = detection.patternName,
-    direction = detection.direction,
-    confidence = detection.confidence,
-    riskReward = detection.risk_reward
-)
+/** Server anchor points carry a timestamp; map it back to a candle index for the overlay. */
+private fun indexForTime(t: String, candles: List<Candle>): Int {
+    val exact = candles.indexOfFirst { it.t == t }
+    if (exact >= 0) return exact
+    if (t.isBlank()) return -1
+    val day = t.take(10)
+    return candles.indexOfFirst { cand -> cand.t.take(10) == day }
+}
+
+private fun toOverlay(detection: Detection, candles: List<Candle>): PatternOverlay {
+    val anchors = detection.anchors.mapNotNull { anchor ->
+        val idx = indexForTime(anchor.t, candles)
+        if (idx >= 0) AnchorPoint(idx, anchor.price) else null
+    }
+    val neckline = detection.neckline?.let { n ->
+        val idx = indexForTime(n.t, candles)
+        if (idx >= 0) {
+            NecklineInfo(idx.toFloat(), n.price.toFloat(), idx.toFloat(), n.price.toFloat())
+        } else {
+            null
+        }
+    }
+    val isBull = detection.direction.lowercase(Locale.US).startsWith("bull")
+    return PatternOverlay(
+        anchors = anchors,
+        neckline = neckline,
+        targetPrice = detection.target_price,
+        stopPrice = detection.stop_price,
+        patternName = detection.patternName,
+        direction = if (isBull) "bull" else "bear",
+        confidence = detection.confidence,
+        riskReward = detection.risk_reward ?: 0.0
+    )
+}
 
 private fun formatLabel(t: String): String {
     val parsed: Date? = try {
