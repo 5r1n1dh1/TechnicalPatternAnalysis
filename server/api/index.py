@@ -80,4 +80,43 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+def _diagnostic_app(exc: BaseException) -> FastAPI:
+    """Fail-soft app used only when router wiring fails at import time.
+
+    Keeps the deployment serving a machine-readable error instead of an opaque
+    FUNCTION_INVOCATION_FAILED, and exposes the traceback so cold-start problems
+    are diagnosable from CI smoke tests.
+    """
+    import os
+    import traceback
+
+    detail = traceback.format_exc()
+    debug = os.environ.get("TPA_DEBUG_ERRORS", "").lower() in ("1", "true", "yes")
+    fallback = FastAPI(title="Technical Pattern Analysis API (degraded)", version="0.1.0")
+
+    @fallback.get("/api/health", response_model=dict)
+    async def health_degraded() -> dict:
+        body: dict = {"status": "degraded", "error": f"{type(exc).__name__}: {exc}"}
+        if debug:
+            body["traceback"] = detail
+        return body
+
+    @fallback.api_route("/{full_path:path}", methods=["GET", "POST"])
+    async def degraded_any(full_path: str) -> JSONResponse:
+        payload: dict = {
+            "error": {
+                "code": "internalError",
+                "message": f"Server initialization failed: {type(exc).__name__}: {exc}",
+            }
+        }
+        if debug:
+            payload["error"]["traceback"] = detail
+        return JSONResponse(status_code=500, content=payload)
+
+    return fallback
+
+
+try:
+    app = create_app()
+except BaseException as _exc:  # pragma: no cover - deployment safety net
+    app = _diagnostic_app(_exc)
