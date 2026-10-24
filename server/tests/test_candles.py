@@ -93,7 +93,7 @@ def test_candles_yahoo(client: TestClient):
         os.remove(cache_file)
 
 def test_candles_kaggle(client: TestClient):
-    """Test that Kaggle data is used as fallback when Yahoo fails."""
+    """Test 404 when no candle source can provide data (Kaggle fallback removed, S16)."""
     # Simulate Yahoo failure by removing cache
     from pathlib import Path
     cache_dir = Path("data/cached_candles")
@@ -105,12 +105,10 @@ def test_candles_kaggle(client: TestClient):
         clear_cache()
     except Exception:
         pass
-    
+
     import api.candles as candles_mod
     orig_yahoo = candles_mod._fetch_from_yahoo
-    orig_kaggle = candles_mod._fetch_from_kaggle
     candles_mod._fetch_from_yahoo = lambda *a, **k: None
-    candles_mod._fetch_from_kaggle = lambda *a, **k: None
     try:
         response = client.get("/api/candles", params={
             "symbol": "RELIANCE",
@@ -121,7 +119,6 @@ def test_candles_kaggle(client: TestClient):
         assert response.json()["detail"] == "Candle data not found"
     finally:
         candles_mod._fetch_from_yahoo = orig_yahoo
-        candles_mod._fetch_from_kaggle = orig_kaggle
 
 def test_candles_not_found(client: TestClient):
     """Test that 404 is returned for unknown symbols."""

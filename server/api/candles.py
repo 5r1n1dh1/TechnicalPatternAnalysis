@@ -131,16 +131,6 @@ def get_candles(
         except Exception:
             pass
 
-    # Try Kaggle fallback first if available (for test environments)
-    try:
-        df = _fetch_from_kaggle(symbol)
-        if df is not None:
-            response = _process_candles(df, symbol, interval_val, range_val, source="kaggle")
-            _cache[cache_key] = (response, datetime.now().timestamp())
-            return response
-    except Exception:
-        pass  # Guarded fallback
-
     # Try Yahoo Finance primary
     try:
         df = _fetch_from_yahoo(symbol, interval_val, range_val)
@@ -248,27 +238,3 @@ def _fetch_from_yahoo(symbol: str, interval: str, range_val: str):
         return None
 
 
-def _fetch_from_kaggle(symbol: str):
-    """Fetch from Kaggle dataset - fallback."""
-    try:
-        # Try to load from local kaggle cache if it exists
-        kaggle_file = Path(__file__).resolve().parents[1] / "data" / f"{symbol}.parquet"
-        if kaggle_file.exists():
-            import pandas as pd
-            try:
-                df = pd.read_parquet(kaggle_file)
-            except Exception:
-                try:
-                    df = pd.read_parquet(kaggle_file, engine="pyarrow")
-                except Exception:
-                    df = pd.read_parquet(kaggle_file, engine="fastparquet")
-            if df is not None and not df.empty:
-                # Ensure columns are named correctly
-                if 'Open' in df.columns:
-                    df = df.rename(columns={'Open': 'o', 'High': 'h', 'Low': 'l', 'Close': 'c', 'Volume': 'v'})
-                if 'Date' in df.columns:
-                    df = df.rename(columns={'Date': 't'})
-                return df[['t', 'o', 'h', 'l', 'c', 'v']].copy()
-        return None
-    except Exception:
-        return None
