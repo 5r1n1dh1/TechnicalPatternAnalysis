@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *.pyc
 scripts/
-data/*.parquet
 .Python
 env/
 venv/
@@ -14,7 +13,6 @@ tests/
 .git/
 .pytest_cache/
 .coverage
-*.parquet
 pipeline/
 android/
 database/

@@ -225,6 +225,11 @@ def _fetch_from_yahoo(symbol: str, interval: str, range_val: str):
         if df.empty:
             return None
 
+        # yfinance >=0.2.51 returns a MultiIndex (Price, Ticker); flatten it or
+        # the column renames below silently never match.
+        if getattr(df.columns, "nlevels", 1) > 1:
+            df.columns = df.columns.get_level_values(0)
+
         df = df.reset_index()
         # Handle different column names
         if 'Date' in df.columns:

@@ -10,6 +10,10 @@ def load_bars(symbol: str, interval: str = "1d", range_str: str = "1Y"):
         df = ticker.history(period=period_map.get(range_str,"1y"), interval=iv_map.get(interval,"1d"))
         if df is None or df.empty:
             return None
+        # yfinance >=0.2.51 returns a MultiIndex (Price, Ticker); flatten it or
+        # the column renames below silently never match.
+        if getattr(df.columns, "nlevels", 1) > 1:
+            df.columns = df.columns.get_level_values(0)
         df = df.reset_index()
         if "Date" in df.columns:
             df = df.rename(columns={"Date":"t"})
