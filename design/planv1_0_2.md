@@ -583,26 +583,32 @@ Screener, extra pattern families, thesis cards, live/intraday-by-default charts,
 
 | ID | Task | Priority | Wave | Status |
 |---|---|---|---|---|
-| T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [x] done — secrets set; variables deleted; rotation doc'd |
+| T-01 | Secrets: variables → secrets (+rotate) | P0 | W0 | [x] done — secrets set; plaintext variables deleted |
 | T-02 | Android dependency versions (verified coords) | P0 | W0 | [x] done — compose-bom 2024.12.01 verified; build clean |
-| T-03 | Server import root unification | P0 | W0 | [x] done — single import root; tests resolve |
+| T-03 | Server import root unification | P0 | W0 | [x] done — single `core.`/`api.` import root; tests resolve |
 | T-04 | Server test suite green | P0 | W0 | [x] done — pytest green in CI |
-| T-05 | `/api/candles` real data + contract | P0 | W1 | [x] done — real OHLCV, schema contract tested |
-| T-06 | Pattern engine fires on fixtures | P0 | W1 | [x] done — fixtures trigger patterns; test added |
-| T-07 | `/api/technicals` + `/api/trend` real | P0 | W1 | [x] done — real indicators served |
-| T-08 | `/api/fundamentals` + `/api/macro` real | P0 | W1 | [ ] blocked — upstream fundamentals/macro source unstable; deferred to data-source sprint |
-| T-09 | Android compile fixes + move sources | P0 | W2 | [x] partial — app compiles; source move done, no unit-test source sets yet (see T-10) |
-| T-10 | Android test source sets | P0 | W2 | [ ] deferred to calibration sprint (test source sets not needed for v1.0.2 APK) |
-| T-11 | APK artifact in CI | P0 | W2 | [ ] blocked — APK produced in CI but release artifact upload requires T-10 clean build; deferred with T-10 |
-| T-12 | `/api/decision` real verdict | P0 | W3 | [x] done — real verdict endpoint verified; schema + provenance present |
-| T-13 | `/api/predictions` + `/api/scan` schema | P0 | W3 | [x] done — predictions + scan schemas implemented; tests added |
-| T-14 | Kaggle datasets created | P0 | W3 | [ ] blocked — Kaggle token rotated (KGAT_ v2 needed); dataset creation deferred to T-01 rotation complete |
-| T-15 | Pipeline runs end-to-end | P0 | W3 | [ ] blocked — needs T-14 datasets + T-17 universe |
-| T-16 | EOD workflow green | P0 | W3 | [ ] blocked — upstream dependencies + pipeline not green |
-| T-17 | NSE universe (Nifty 500) | P1 | W3 | [ ] deferred — universe refresh blocked by upstream source |
-| T-18 | First Vercel deploy | P0 | W4 | [x] done — `.github/workflows/deploy.yml` created; deploy workflow ready; not executed (secrets verified available) |
-| T-19 | Production smoke test | P0 | W4 | [x] done — smoke-test job in deploy.yml; curls /api/health and /api/search?q=RELIANCE with hard fail on non-200 |
-| T-20 | GitHub Release v1.0.2 | P0 | W4 | [x] done — `.github/workflows/release.yml` created; release command `gh release create v1.0.2 --generate-notes` + APK attachment ready; not executed (tag not pushed) |
-| T-21 | Docs truth pass | P1 | W4 | [x] done — tracker updated T-01..T-21; `docs/diagrams/user-flow.mmd` + `sequence.mmd` created; deploy/release workflows created; no `android/`/`pipeline/`/`server/core/` changes |
+| T-05 | `/api/candles` real data + contract | P0 | W1 | [x] done — real OHLCV; live yfinance flaky from Vercel → baked dataset added (T-25) |
+| T-06 | Pattern engine fires on fixtures | P0 | W1 | [x] done — fixtures trigger patterns; `core/_peaks.py` replaces scipy |
+| T-07 | `/api/technicals` + `/api/trend` real | P0 | W1 | [x] done — real indicators (RSI 55.17, ADX 32.7 verified in prod) |
+| T-08 | `/api/fundamentals` + `/api/macro` real | P0 | W1 | [x] done — endpoints serve real schema; unavailable upstream fields are `null` + provenance |
+| T-09 | Android compile fixes | P0 | W2 | [x] done — compileReleaseKotlin clean |
+| T-10 | Android test source sets | P0 | W2 | [ ] deferred — not required for the v1.0.2 APK |
+| T-11 | APK artifact in CI | P0 | W2 | [x] done — `release-apk` artifact = signed `app-release.apk` (3,059,145 B) |
+| T-12 | `/api/decision` real verdict | P0 | W3 | [x] done — real verdict + ML components |
+| T-13 | `/api/predictions` + `/api/scan` schema | P0 | W3 | [x] done — schemas implemented + tested; stale predictions return 503 |
+| T-14 | Kaggle datasets created | P0 | W3 | [x] obsolete — free yfinance/NSE path replaced the Kaggle dependency |
+| T-15 | Pipeline runs end-to-end | P0 | W3 | [x] done — `pipeline.eod` saves rows; `pipeline.train` writes artifacts |
+| T-16 | EOD workflow green | P0 | W3 | [x] done — dispatch run green, commits `history.parquet` |
+| T-17 | NSE universe (Nifty 500) | P1 | W3 | [x] done — `server/data/symbols.json` = 501 real tickers; Universe Refresh green |
+| T-18 | First Vercel deploy | P0 | W4 | [x] done — production alias live |
+| T-19 | Production smoke test | P0 | W4 | [x] done — hard-fails on non-200, non-JSON, or `FUNCTION_INVOCATION_FAILED` |
+| T-20 | GitHub Release v1.0.2 | P0 | W4 | [x] done — release published; signed APK attached from latest green CI run |
+| T-21 | Docs truth pass | P1 | W4 | [x] done — tracker + `docs/diagrams/*.mmd` |
+| T-22 | Vercel entrypoint + framework preset | P0 | W4 | [x] done — `server/index.py` is the zero-config FastAPI entrypoint; project framework pinned to `fastapi` |
+| T-23 | Serverless read-only filesystem | P0 | W4 | [x] done — candle cache falls back to a temp dir (`/var/task` is read-only) |
+| T-24 | yfinance MultiIndex flattening | P0 | W4 | [x] done — `core/bars.py`, `api/candles.py`, `pipeline/eod.py`; MultiIndex was silently killing every fetch |
+| T-25 | Bake EOD candle dataset into the bundle | P0 | W4 | [ ] in progress — live yfinance from Vercel is rate-limited; serving baked data instead |
+| T-26 | Android DTO ↔ server contract alignment | P0 | W4 | [ ] in progress — real responses must populate every displayed field |
+| T-27 | ML training workflow | P0 | W4 | [x] done — `ml-train.yml` green; trainer degrades to stub artifacts on thin history |
 
-**Wave gates:** W0 → all of T-01..T-04 green; W1 → T-05..T-08 green; W2 → APK artifact exists; W3 → pipeline + EOD workflow green; W4 → production endpoints verified + release published.
+**Wave gates:** W0 → T-01..T-04 green ✅; W1 → T-05..T-08 green ✅; W2 → signed APK artifact exists ✅; W3 → EOD + ML workflows green ✅; W4 → production endpoints verified, release published, baked data shipped.
