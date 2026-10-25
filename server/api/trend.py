@@ -1,9 +1,20 @@
 """Trend endpoint."""
+import json
+from pathlib import Path
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from enum import Enum
 
 router = APIRouter()
+
+_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+_KNOWN_SYMBOLS: set[str] = set()
+try:
+    if _DATA_DIR / "symbols.json".exists():
+        raw = json.loads((_DATA_DIR / "symbols.json").read_text(encoding="utf-8"))
+        _KNOWN_SYMBOLS = {str(entry["symbol"]) for entry in raw if isinstance(entry, dict)}
+except Exception:
+    _KNOWN_SYMBOLS = set()
 
 
 class Interval(str, Enum):
@@ -29,8 +40,11 @@ class Range(str, Enum):
 
 
 class TrendResponse(BaseModel):
+    symbol: str
+    interval: Interval
+    range: Range
     label: str
-    strength: int
+    strength: float
     ema20: float
     ema50: float
     adx: float
@@ -46,20 +60,36 @@ def get_trend(
     from core.bars import load_bars
     from core.indicators import ema_set, adx_di
     from core.trend import trend_from_series, trend_strength
+    from api.errors import ApiError, ErrorResponse, ErrorBody
     import numpy as np
     df = load_bars(symbol, interval, range)
     if df is None or len(df) < 30:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=503, detail="upstreamUnavailable")
+        if symbol not in _KNOWN_SYMBOLS:
+            raise ApiError(
+                404,
+                ErrorResponse(
+                    error=ErrorBody(code="unknownSymbol", message=f"Unknown symbol: {symbol}")
+                ),
+            )
+        raise ApiError(
+            503,
+            ErrorResponse(error=ErrorBody(code="upstreamUnavailable", message="Data unavailable, try after today's EOD sync")),
+        )
     close = df["c"].to_numpy(dtype=float)
     high = df["h"].to_numpy(dtype=float)
     low = df["l"].to_numpy(dtype=float)
-    ema20_arr, _, _ = ema_set(close)
-    _, plus_di, minus_di = adx_di(high, low, close)
-    tr = trend_from_series(close, ema20_arr, ema20_arr, float(plus_di), float(minus_di), 28.0)
+    ema20_arr, ema50_arr, _ = ema_set(close)
+    adx_v, plus_di, minus_di = adx_di(high, low, close)
+    tr = trend_from_series(close, ema20_arr, ema50_arr, float(plus_di), float(minus_di), float(adx_v))
     label = tr.get("label") or "Sideways"
-    strength = trend_strength(tr.get("score", 50.0))
+    strength = float(trend_strength(tr.get("score", 50.0)))
     return TrendResponse(
-        symbol=symbol, interval=interval, range=range,
-        label=label, strength=strength, ema20=float(ema20_arr[-1]), ema50=float(ema20_arr[-1]), adx=float(tr.get("adx", 0.0)),
+        symbol=symbol,
+        interval=interval,
+        range=range,
+        label=label,
+        strength=strength,
+        ema20=float(ema20_arr[-1]),
+        ema50=float(ema50_arr[-1]),
+        adx=float(adx_v),
     )
