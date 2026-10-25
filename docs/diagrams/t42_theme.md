@@ -25,3 +25,19 @@ flowchart TD
     G --> CF[semantic tokens: onSurface 0xFF0F172A]
     CB -.-> L|LIGHT path verified|CF
 ```
+
+## Sequence: theme resolution + glass
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant SP as SharedPreferences
+    participant T as TPATheme / ThemeViewModel
+    participant M as MaterialTheme
+    participant G as Glass.glassSurface
+    U->>SP: open / override setting
+    SP-->>T: theme_mode (SYSTEM/LIGHT/DARK)
+    T->>T: resolve darkTheme (system if SYSTEM)
+    T->>M: colorScheme
+    M-->>G: light/dark tokens
+    G-->>U: frosted-glass UI rendered
+```
