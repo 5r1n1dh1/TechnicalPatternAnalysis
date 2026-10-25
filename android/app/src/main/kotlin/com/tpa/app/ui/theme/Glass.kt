@@ -11,7 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 private val GlassWhite = Color(0xFFFFFFFF)
-private val GlassBorder = Color(0x1FFFFFFF) // 12% white
+private val GlassBorderLight = Color(0x33000000)
+private val GlassBorderDark = Color(0x1FFFFFFF)
 
 /**
  * Glassmorphism surface: 8% white alpha fill, 1dp 12%-white border, 20dp corner radius.
@@ -19,21 +20,21 @@ private val GlassBorder = Color(0x1FFFFFFF) // 12% white
  */
 @Composable
 fun Modifier.glassSurface(
+    light: Boolean = false,
     elevation: Float = 0f
 ): Modifier {
+    val borderColor = if (light) GlassBorderLight else GlassBorderDark
+    val gradientColors = if (light) {
+        listOf(Color(0xCCFFFFFF), Color(0xAAFFFFFF))
+    } else {
+        listOf(Color(0x0DFFFFFF), Color(0x08FFFFFF))
+    }
     var m = this
         .clip(RoundedCornerShape(20.dp))
-        .background(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color(0x0DFFFFFF),
-                    Color(0x08FFFFFF)
-                )
-            )
-        )
+        .background(brush = Brush.linearGradient(colors = gradientColors))
         .border(
             width = 1.dp,
-            color = GlassBorder,
+            color = borderColor,
             shape = RoundedCornerShape(20.dp)
         )
     if (elevation > 0f) {
@@ -49,6 +50,9 @@ fun Modifier.glassSurface(
     }
     return m
 }
+
+@Composable
+fun Modifier.glassSurfaceL(elevation: Float = 0f): Modifier = glassSurface(light = true, elevation = elevation)
 
 @Composable
 fun Modifier.glassCard(): Modifier = glassSurface(elevation = 4f)

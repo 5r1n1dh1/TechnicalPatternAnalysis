@@ -1,7 +1,11 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="glass_border">#1FFFFFFF</color> <!-- 12% white -->
+    <color name="glass_border_dark">#1FFFFFFF</color>
+    <color name="glass_border_light">#33000000</color>
+    <color name="surface_light">#FFF6F8FA</color>
+    <color name="surface_container_light">#FFFFFFFF</color>
+    <color name="on_surface">#FF0F172A</color>
     <color name="accent_green">#FF34D399</color>
     <color name="accent_red">#FFFF4444</color>
 </resources>

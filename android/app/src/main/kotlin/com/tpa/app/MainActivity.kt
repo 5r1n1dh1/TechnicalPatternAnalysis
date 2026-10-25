@@ -51,6 +51,7 @@ import com.tpa.app.ui.symbol.FundamentalsViewModel
 import com.tpa.app.ui.symbol.TechnicalScreen
 import com.tpa.app.ui.symbol.TechnicalViewModel
 import com.tpa.app.ui.theme.TechnicalPatternAnalysisTheme
+import com.tpa.app.ui.theme.glassSurface
 
 private const val DEFAULT_SYMBOL = "RELIANCE"
 
@@ -106,17 +107,13 @@ fun TpaNavHost() {
 @Composable
 fun GlassBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
     NavigationBar(
-        containerColor = Color(0xCC1E293B),
-        contentColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp,
         modifier = Modifier
             .height(68.dp)
             .blur(8.dp)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xCC1E293B), Color(0xAA334155))
-                )
-            )
+            .glassSurface()
     ) {
         val items = listOf(
             Tab.Search to Pair(Icons.Default.Search, "Search"),
@@ -139,7 +136,7 @@ fun GlassBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
 fun SearchTab(onOpen: (String) -> Unit) {
     GlassCard(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Search", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF0F172A))
+            Text("Search", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = { onOpen(DEFAULT_SYMBOL) }) {
                 Text("Open $DEFAULT_SYMBOL")
@@ -152,7 +149,7 @@ fun SearchTab(onOpen: (String) -> Unit) {
 fun WishlistTab(onOpen: (String) -> Unit) {
     GlassCard(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Wishlist", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF0F172A))
+            Text("Wishlist", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = { onOpen(DEFAULT_SYMBOL) }) {
                 Text("Open $DEFAULT_SYMBOL")
@@ -178,7 +175,7 @@ fun SymbolDetailScreen(symbol: String, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
-                .background(Color(0xCCFFFFFF), RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), RoundedCornerShape(16.dp))
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -245,9 +242,9 @@ private fun CircularProgressIndicatorPlaceholder() {
 fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Surface(
         modifier = modifier
-            .graphicsLayer { alpha = 0.92f, clip = true }
-            .background(Color(0xDDF6F8FA), RoundedCornerShape(24.dp)),
-        color = Color.Transparent,
+            .graphicsLayer { alpha = 0.92f; clip = true }
+            .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), RoundedCornerShape(24.dp)),
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 4.dp,
         shape = RoundedCornerShape(24.dp)

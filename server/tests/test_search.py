@@ -77,6 +77,24 @@ def test_search_case_insensitive(client: TestClient):
     if has_symbol:
         assert any(item["symbol"] == "RELIANCE" for item in response.json())
 
+def test_search_typo(client: TestClient):
+    response = client.get("/api/search?q=riaL")
+    assert response.status_code == 200
+    data = response.json()
+    symbols = [r["symbol"] for r in data]
+    assert "RELIANCE" in symbols
+
+def test_search_limit_1(client: TestClient):
+    response = client.get("/api/search?q=a&limit=1")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+def test_search_prefix_beats_fuzzy(client: TestClient):
+    response = client.get("/api/search?q=RELI")
+    data = response.json()
+    assert len(data) > 0
+    assert data[0]["symbol"].startswith("RELI")
+
 def test_search_no_results(client: TestClient):
     """Test that empty results return empty list."""
     response = client.get("/api/search?q=nonexistent")
