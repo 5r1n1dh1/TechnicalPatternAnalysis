@@ -145,7 +145,8 @@ class Detection:
     direction: str  # "bearish" | "bullish"
     confidence: float  # 0-100
     anchors: List[Dict[str, Any]]  # [{"t": str, "price": float}, ...]
-    neckline: Dict[str, Any]  # {"t": str, "price": float}
+    neckline: Optional[Dict[str, Any]] = None  # {"t": str, "price": float}
+    pivot_idx: List[Tuple[int, float, bool]] = field(default_factory=list)
     target_price: Optional[float] = None
     stop_price: Optional[float] = None
     rr: float = 0.0  # risk:reward ratio
@@ -274,11 +275,14 @@ def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
         except Exception:
             pass
 
-    # Find pivots
+    # Setup: exclude current bar from detection eligibility
+    setup = candles.iloc[:-1].copy() if len(candles) > 1 else candles.copy()
+
+    # Find pivots on setup (strictly before now)
     try:
-        high = candles['high'].values
-        low = candles['low'].values
-        close = candles['close'].values
+        high = setup['high'].values
+        low = setup['low'].values
+        close = setup['close'].values
         atr_vals = candles['atr'].values if 'atr' in candles.columns else np.ones_like(close)
         pivots = find_pivots(close, high, low, atr_vals, prominence_mult=0.1, use_smoothing=True)
         if len(pivots) < 3:
@@ -299,9 +303,55 @@ def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
 
     for detector in detectors:
         try:
-            detections = detector.detect(pivots, candles)
+            detections = detector.detect(pivots, setup)
             all_detections.extend(detections)
         except Exception:
             continue
 
+    # Attach pivot_idx to each detection based on matched pivot indices
+    for d in all_detections:
+        idx_set = set()
+        for a in d.anchors:
+            idx_set.add(int(str(a.get("t", "0"))))
+        if d.neckline:
+            idx_set.add(int(str(d.neckline.get("t", "0"))))
+        d.pivot_idx = [(int(p.idx), float(p.price), bool(p.is_high)) for p in pivots if int(p.idx) in idx_set]
+        # Ensure neckline Optional flag when missing (already None)
+        if not d.neckline:
+            d.neckline = None
+
     return all_detections
+
+
+def build_detection_payload(df: pd.DataFrame, detections: List[Detection]) -> List[Dict[str, Any]]:
+    """Convert bar indices → ISO timestamps using df's date column."""
+    import pandas as pd
+    date_col = None
+    for c in ("t", "date", "Date", "datetime"):
+        if c in df.columns:
+            date_col = c
+            break
+    payload = []
+    for d in detections:
+        def to_iso(idx: int) -> str:
+            try:
+                val = df[date_col].iloc[int(idx)] if date_col else None
+                if val is None or (not isinstance(val, str) and pd.isna(val)):
+                    return ""
+                ts = pd.to_datetime(val)
+                return ts.strftime("%Y-%m-%dT%H:%M:%SZ") if hasattr(ts, "strftime") else str(val)
+            except Exception:
+                return ""
+        entry = {
+            "pattern": d.pattern,
+            "direction": d.direction,
+            "confidence": d.confidence,
+            "anchors": [{"t": to_iso(int(str(a.get("t")))), "price": float(a.get("price", 0))} for a in d.anchors],
+            "neckline": {"t": to_iso(int(str(d.neckline.get("t")))), "price": float(d.neckline.get("price", 0))} if d.neckline else None,
+            "pivot_idx": [{"idx": int(i), "price": float(p), "kind": "HIGH" if h else "LOW"} for i, p, h in d.pivot_idx],
+            "target_price": d.target_price,
+            "stop_price": d.stop_price,
+            "rr": d.rr,
+        }
+        payload.append(entry)
+    return payload
