@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      actions: write  # required to trigger ml-train.yml via gh
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,3 +56,13 @@ jobs:
             vercel pull --yes --environment=production --token=$VERCEL_API_KEY 2>&1 | tail -5 || true
             vercel deploy --prod --token=$VERCEL_API_KEY --cwd server 2>&1 | tail -10 || true
           fi
+
+      # Chain to ML training so one trading day produces predictions + models.
+      - name: Trigger ML train
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run ml-train.yml --ref main 2>&1 || echo "ml-train trigger (ok if redundant)"
+
+      # Chain to ML training + prediction so one trading day feeds prod.

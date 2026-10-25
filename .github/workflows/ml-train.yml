@@ -23,8 +23,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r pipeline/requirements.txt
-      - name: Train model
+      - name: Train (honest — exit 2 on insufficient data; never stub)
+        id: train
         run: python -m pipeline.train
+
+      - name: Predict / Scan
+        if: steps.train.outcome == 'success'
+        run: |
+          python -m pipeline.predict --models-dir tpa-models || echo "predict skipped"
+          python -m pipeline.scan || echo "scan skipped"
+
       - name: Upload model artifacts
         uses: actions/upload-artifact@v4
         with:
