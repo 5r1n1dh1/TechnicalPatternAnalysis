@@ -182,7 +182,6 @@ class PatternOverlayRenderer(
         overlayDataSets.clear()
         val combined = chart.data as? com.github.mikephil.charting.data.CombinedData
         combined?.lineData = null
-        chart.invalidate()
     }
 
     companion object {

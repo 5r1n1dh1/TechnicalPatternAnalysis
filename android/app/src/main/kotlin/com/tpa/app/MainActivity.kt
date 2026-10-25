@@ -159,7 +159,7 @@ fun WishlistTab(onOpen: (String) -> Unit) {
 
 @Composable
 fun ChartsTab() {
-    val api = NetworkModule.provideApi()
+    val api = remember { NetworkModule.provideApi() }
     val vm = remember { ChartViewModel(api) }
     GlassCard(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         ChartScreen(viewModel = vm, onBack = {})

@@ -91,8 +91,8 @@ private fun ChartContent(
     viewModel: ChartViewModel,
     onBack: () -> Unit
 ) {
-    val validIntervals = validIntervalsFor(state.range)
-    val selectedDetection = state.detections.firstOrNull { it.id == state.selectedPattern }
+    val validIntervals = remember(state.range) { derivedStateOf { validIntervalsFor(state.range) } }.value
+    val selectedDetection = remember(state.selectedPattern, state.detections) { derivedStateOf { state.detections.firstOrNull { it.id == state.selectedPattern } } }.value
 
     Column(
         modifier = Modifier
@@ -411,8 +411,8 @@ private fun CandleStickCard(
     selected: Detection?,
     modifier: Modifier = Modifier
 ) {
-    val labels = remember { mutableStateOf<List<String>>(emptyList()) }
-    val signature = remember { mutableStateOf("") }
+    val labelRef = remember { object { var value = emptyList<String>() } }
+    val sigRef = remember { object { var value = "" } }
 
     AndroidView(
         modifier = modifier,
@@ -437,7 +437,7 @@ private fun CandleStickCard(
                 xAxis.setLabelCount(4, false)
                 xAxis.valueFormatter = object : ValueFormatter() {
                     override fun getFormattedValue(value: Float): String {
-                        return labels.value.getOrNull(value.toInt()) ?: ""
+                        return labelRef.value.getOrNull(value.toInt()) ?: ""
                     }
                 }
             }
@@ -452,8 +452,8 @@ private fun CandleStickCard(
                 append(selected?.id).append('|')
                 append("v$volSum")
             }
-            if (signature.value == newSignature) return@AndroidView
-            signature.value = newSignature
+            if (sigRef.value == newSignature) return@AndroidView
+            sigRef.value = newSignature
 
             val entries = ArrayList<CandleEntry>(candles.size)
             val newLabels = ArrayList<String>(candles.size)
@@ -469,7 +469,7 @@ private fun CandleStickCard(
                 )
                 newLabels.add(formatLabel(candle.t))
             }
-            labels.value = newLabels
+            labelRef.value = newLabels
 
             // Volume bars (T-47): real v in BarChart overlaying Candles (overlayed via a second
             // axis is out of scope here; volume shares left axis with candles so the color encoding
