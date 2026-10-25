@@ -1,9 +1,16 @@
 """Fundamentals endpoint — real yfinance data, nulls when unavailable."""
-from fastapi import APIRouter
+import time
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
+from core.formulas import compute_ratios
+
 router = APIRouter()
+
+# Module-level 12h TTL cache (no per-request disk thrash)
+_fund_cache: dict = {}
+_CACHE_TTL = 12 * 3600
 
 
 class FundamentalsHeader(BaseModel):
@@ -142,6 +149,14 @@ def _quarterly_rows(ticker) -> List[QuarterlyResult]:
 def get_fundamentals(symbol: Optional[str] = None):
     """Get financial statements and ratios from yfinance (EOD/fundamental data)."""
     symbol = (symbol or "RELIANCE").strip().upper()
+    # Cache guard: module-level TTL, no per-request disk thrash
+    now = time.time()
+    cached = _fund_cache.get(symbol)
+    if cached is not None:
+        payload, ts = cached
+        if now - ts < _CACHE_TTL:
+            return payload
+    # If stale/missing upstream → 503; unknown symbol → 404
     as_of = None
     try:
         import yfinance as yf
@@ -152,25 +167,16 @@ def get_fundamentals(symbol: Optional[str] = None):
     except Exception:
         info = {}
         ticker = None
+    if ticker is None or not info:
+        if ticker is None:
+            raise HTTPException(status_code=503, detail="upstreamUnavailable")
+        # ticker exists but info empty → unknown symbol
+        raise HTTPException(status_code=404, detail="unknown symbol")
+    # Unknown symbol when no identifying info fields (fallback guard)
+    if not info.get("longName") and not info.get("shortName") and not info.get("symbol"):
+        raise HTTPException(status_code=404, detail="unknown symbol")
 
-    if not info:
-        return FundamentalsResponse(
-            symbol=symbol,
-            asOf=None,
-            header=FundamentalsHeader(name="N/A", sector="N/A", mcap=0.0, fiftyTwoWRange="N/A", beta=0.0),
-            valuation=FundamentalsValuation(pe_ttm=None, pe_forward=None, pb=None, dividendYield=None, eps=None, bookValue=None),
-            profitability=FundamentalsProfitability(roa=None, roce=None, roic=None, grossMargin=None, netMargin=None),
-            quarterlyResults=[],
-            annualStatements=AnnualStatements(
-                pnl=AnnualPNL(revenue=None, pat=None),
-                balanceSheet=AnnualBalanceSheet(totalAssets=None, totalDebt=None, equity=None),
-                cashFlow=AnnualCashFlow(ocf=None, capex=None, fcf=None),
-            ),
-            redFlags=RedFlags(earningsQuality=False, leverage=False, growth=False, management=False),
-            shareholding=Shareholding(promoter=None, fii=None, dii=None, public=None),
-            provenance={"source": "unavailable", "reason": "upstreamUnavailable"},
-        )
-
+    # Real data load continues
     price = _f(info.get("currentPrice") or info.get("regularMarketPrice"))
     mcap = _f(info.get("marketCap"))
     beta = _f(info.get("beta"))
@@ -197,7 +203,26 @@ def get_fundamentals(symbol: Optional[str] = None):
     cfo_pat = (cfo / pat) if (cfo is not None and pat not in (None, 0)) else None
     debt_to_equity = (total_debt / equity) if (total_debt is not None and equity not in (None, 0)) else None
     rev_growth = info.get("revenueGrowth")
-    rev_growth_pct = _f(rev_growth.get("percent"), 0.01) if isinstance(rev_growth, dict) else None
+    if isinstance(rev_growth, dict):
+        rev_growth_pct = _f(rev_growth.get("percent"), 0.01)
+    elif isinstance(rev_growth, (int, float)):
+        rev_growth_pct = _f(rev_growth)
+    else:
+        rev_growth_pct = None
+
+    # ROCE: prefer info value; else compute via core.formulas from statements
+    roce_raw = info.get("returnOnCapitalEmployed")
+    roce = _f(roce_raw, 100.0) if roce_raw is not None else None
+    equity_info = info.get("stockholdersEquity") or info.get("totalEquity")
+    eq_for_score = equity_info or equity
+    if roce is None and eq_for_score is not None:
+        score = compute_ratios(
+            income_stmt={"ebit": info.get("ebit"), "rev": info.get("totalRevenue"), "pat": info.get("netIncomeToCommon")},
+            balance_sheet={"equity": eq_for_score, "debt": info.get("totalDebt"), "cash": info.get("totalCash")},
+            cashflow={"ocf": info.get("operatingCashflow"), "capex": info.get("capitalExpenditures")},
+            symbol_data={"beta": info.get("beta")},
+        )
+        roce = score.roce if score else None
 
     red_flags = RedFlags(
         earningsQuality=bool(cfo_pat is not None and cfo_pat < 0.8),
@@ -206,7 +231,7 @@ def get_fundamentals(symbol: Optional[str] = None):
         management=False,
     )
 
-    return FundamentalsResponse(
+    result = FundamentalsResponse(
         symbol=symbol,
         asOf=as_of,
         header=FundamentalsHeader(
@@ -226,7 +251,7 @@ def get_fundamentals(symbol: Optional[str] = None):
         ),
         profitability=FundamentalsProfitability(
             roa=_f(info.get("returnOnAssets"), 100.0),
-            roce=_f(info.get("returnOnEquity"), 100.0),
+            roce=roce,
             roic=_f(info.get("returnOnInvestedCapital"), 100.0),
             grossMargin=_f(info.get("grossMargins"), 100.0),
             netMargin=_f(info.get("profitMargins"), 100.0),
@@ -250,3 +275,5 @@ def get_fundamentals(symbol: Optional[str] = None):
             "symbol": _ns_symbol(symbol),
         },
     )
+    _fund_cache[symbol] = (result, now)
+    return result
