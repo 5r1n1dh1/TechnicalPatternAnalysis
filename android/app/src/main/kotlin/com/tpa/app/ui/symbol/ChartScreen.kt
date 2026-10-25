@@ -441,11 +441,14 @@ private fun CandleStickCard(
             }
         },
         update = { chart ->
+            // T-47: digest volume sum so the BarChart below redraws on data change.
+            val volSum = candles.sumOf { (it.v ?: 0.0).toDouble() }.toInt()
             val newSignature = buildString {
                 append(candles.size).append('|')
                 append(candles.firstOrNull()?.t).append('|')
                 append(candles.lastOrNull()?.t).append('|')
-                append(selected?.id)
+                append(selected?.id).append('|')
+                append("v$volSum")
             }
             if (signature.value == newSignature) return@AndroidView
             signature.value = newSignature
@@ -466,7 +469,20 @@ private fun CandleStickCard(
             }
             labels.value = newLabels
 
-            val dataSet = CandleDataSet(entries, "Price").apply {
+            // Volume bars (T-47): real v in BarChart overlaying Candles (overlayed via a second
+            // axis is out of scope here; volume shares left axis with candles so the color encoding
+            // is visible even when values would otherwise crowd the axis).
+            chart.axisRight.isEnabled = true
+            val volumeEntries = ArrayList<com.github.mikephil.charting.data.BarEntry>(candles.size)
+            candles.forEachIndexed { idx, candle ->
+                volumeEntries.add(com.github.mikephil.charting.data.BarEntry(idx.toFloat(), (candle.v ?: 0.0f).toFloat()))
+            }
+            val volDataSet = com.github.mikephil.charting.data.BarDataSet(volumeEntries, "Volume").apply {
+                setDrawValues(false)
+                barWidth = 0.3f
+                color = AndroidColor.parseColor("#64748B")
+            }
+            val priceDataSet = com.github.mikephil.charting.data.CandleDataSet(entries, "Price").apply {
                 setDrawValues(false)
                 increasingColor = AndroidColor.parseColor("#34D399")
                 decreasingColor = AndroidColor.parseColor("#F87171")
@@ -475,8 +491,10 @@ private fun CandleStickCard(
                 barSpace = 0.08f
                 shadowWidth = 0.7f
             }
-            chart.data = CandleData(dataSet)
-
+            val priceData = com.github.mikephil.charting.data.CandleData(priceDataSet)
+            val volumeData = com.github.mikephil.charting.data.BarData(volDataSet)
+            // T-47: CombinedChart with price candles + volume bars below; volume synchronizes via shared x-index.
+            chart.data = com.github.mikephil.charting.data.CombinedData(priceData, volumeData)
             val overlay = selected?.let { toOverlay(it, candles) }
             if (overlay != null && overlay.anchors.isNotEmpty()) {
                 PatternOverlayRenderer(chart, chart.viewPortHandler).drawPatternOverlay(overlay)
