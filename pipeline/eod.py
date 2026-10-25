@@ -11,6 +11,31 @@ import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
 
+def load_universe():
+    """Load NSE tickers (Nifty-500) + ^NSEI benchmark from server/data/symbols.json.
+    Each entry: {"symbol": "RELIANCE", "name": "...", "sector": "..."}.
+    Returns a list of uppercase symbol strings suitable for yfinance."""
+    symbols_path = os.path.join(
+        os.path.dirname(__file__), "..", "server", "data", "symbols.json"
+    )
+    if not os.path.exists(symbols_path):
+        print("Warning: symbols.json not found; falling back to minimal universe")
+        return ["^NSEI"]
+    try:
+        with open(symbols_path, "r") as f:
+            raw = json.load(f)
+        tickers = [str(s["symbol"]).strip().upper() for s in raw]
+        # Dedupe (preserving order) and append NSEI benchmark if absent
+        seen = set()
+        tickers = [t for t in tickers if not (t in seen or seen.add(t))]
+        if "^NSEI" not in tickers:
+            tickers.append("^NSEI")
+        return tickers
+    except Exception as e:
+        print(f"Warning: could not parse symbols.json ({e}); using minimal universe")
+        return ["^NSEI"]
+
+
 # Load NSE holidays from bundled calendar JSON
 NSE_CALENDAR_PATH = os.path.join(os.path.dirname(__file__), "..", "server", "core", "nse_holidays.json")
 NSE_CALENDAR_PATH = os.path.abspath(NSE_CALENDAR_PATH)
@@ -228,14 +253,98 @@ def validate_date(date: str):
 
 
 def fetch_sec_delivery_pct(date: str):
-    """Fetch delivery % from sec_bhavdata_full - stub implementation."""
+    """Fetch delivery % from NSE sec_bhavdata_full CSV for the trading day.
+    Returns a DataFrame[columns: SC_CODE, delivery_pct] with delivery % (0-100).
+    Returns an empty DataFrame on any failure so callers can treat it as "no delivery data".
+    """
     try:
-        ymd = datetime.strptime(date, "%d%m%Y").strftime("%Y-%m-%d")
-        # In production, this would fetch from NSE/SEC bhavdata full
-        # Return empty df if not available
-        return pd.DataFrame(columns=["symbol", "delivery_pct", "date"])
+        datetime.strptime(date, "%d%m%Y")
+    except ValueError:
+        return pd.DataFrame(columns=["SC_CODE", "delivery_pct"])
+
+    # NSE sec_bhavdata_full: columns include DELIV_PER (delivery %),
+    # and the symbol is in the SYMBOL column (not SC_CODE).
+    # Try two known NSE endpoints for the daily full bhavcopy.
+    ymd = datetime.strptime(date, "%d%m%Y").strftime("%Y-%m-%d")
+    endpoints = [
+        f"https://www.nseindia.com/api/sec-bhavdata-full?symbol=ALL&date={date}",
+        f"https://www.nseindia.com/api/sec-bhavdata-full?date={date}",
+    ]
+
+    session = requests.Session()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        "Accept": "application/json,text/csv,application/vnd.ms-excel",
+    }
+    # Cookie handshake — required by NSE endpoints
+    try:
+        session.get("https://www.nseindia.com/", headers=headers, timeout=30)
     except Exception:
-        return pd.DataFrame()
+        pass
+
+    response = None
+    for url in endpoints:
+        try:
+            response = session.get(url, headers=headers, timeout=30)
+            if response is not None and getattr(response, "ok", False):
+                break
+        except Exception:
+            response = None
+
+    if response is None or not getattr(response, "ok", False):
+        print(f"Warning: NSE delivery data unavailable for {date}; deliveryPct will be null")
+        return pd.DataFrame(columns=["SC_CODE", "delivery_pct"])
+
+    try:
+        # NSE returns JSON; fall back to CSV parsing
+        try:
+            records = response.json()
+        except Exception:
+            df = pd.read_csv(pd.io.common.StringIO(response.text))
+        else:
+            if isinstance(records, dict) and "data" in records:
+                records = records["data"]
+            if isinstance(records, list) and records:
+                df = pd.DataFrame(records)
+            else:
+                df = pd.DataFrame()
+    except Exception:
+        return pd.DataFrame(columns=["SC_CODE", "delivery_pct"])
+
+    if df.empty:
+        return pd.DataFrame(columns=["SC_CODE", "delivery_pct"])
+
+    # Normalize: SEC code column may be "SYMBOL" or "SC_CODE"; delivery column "DELIV_PER" or "delivery"
+    out = pd.DataFrame()
+    sym_col = None
+    deliv_col = None
+    for c in df.columns:
+        cu = str(c).upper().strip()
+        if cu in ("SYMBOL", "SC_CODE") and sym_col is None:
+            sym_col = c
+        if cu in ("DELIV_PER", "DELIV_PERCENT", "DELIVERY_PER", "DELIVERY") and deliv_col is None:
+            deliv_col = c
+    if sym_col is None or deliv_col is None:
+        # Try to infer
+        for c in df.columns:
+            if str(c).upper().strip() == "SYMBOL":
+                sym_col = c
+        for c in df.columns:
+            cu = str(c).upper().strip()
+            if "DELIV" in cu or cu == "DELIVERY_PERCENT":
+                deliv_col = c
+
+    if sym_col and deliv_col:
+        out = pd.DataFrame({
+            "SC_CODE": df[sym_col].astype(str).str.strip().str.upper(),
+            "delivery_pct": pd.to_numeric(df[deliv_col], errors="coerce"),
+            "date": ymd,
+        })
+        # Drop rows with NaN delivery_pct
+        out = out.dropna(subset=["delivery_pct"])
+        # Deduplicate by SC_CODE (keep first / latest non-null)
+        out = out.drop_duplicates(subset="SC_CODE", keep="first")
+    return out
 
 
 def run():
@@ -243,12 +352,40 @@ def run():
     if not validate_date(today):
         print(f"Warning: {today} is a holiday, skipping EOD pipeline")
         return pd.DataFrame()
-    # ^NSEI is the Yahoo ticker for NIFTY 50; "NIFTY50" is not a valid symbol.
-    symbols = ["^BSESN", "^NSEI"]
+    # Load real NSE universe (Nifty-500 + ^NSEI benchmark) — fixes partial universe capture (v1.0.3 T-29)
+    symbols = load_universe()
+    if "^NSEI" not in symbols:
+        symbols.append("^NSEI")
     merged_data = merge_eod(today, symbols)
     if merged_data is None or merged_data.empty:
         print("No new EOD data available; nothing to commit")
         return pd.DataFrame()
+    
+    # Coverage guard: if fewer than 80% of the universe was captured, this is a
+    # data integrity failure — exit non-zero so the workflow step fails loudly
+    # instead of silently shipping a partial universe (v1.0.3 T-29).
+    captured = merged_data["SC_CODE"].nunique()
+    expected = len(symbols)
+    coverage = captured / expected if expected else 0.0
+    print(f"Coverage: {captured}/{expected} symbols ({coverage:.1%})")
+    if coverage < 0.8:
+        raise RuntimeError(
+            f"EOD coverage too low: {captured}/{expected} symbols captured "
+            f"({coverage:.1%}); aborting (minimum 80% required)"
+        )
+    
+    # Fetch delivery % from NSE sec_bhavdata_full (best-effort; NaN on failure)
+    delivery_df = fetch_sec_delivery_pct(today)
+    if not delivery_df.empty:
+        merged_data = merged_data.merge(
+            delivery_df[["SC_CODE", "delivery_pct"]],
+            on="SC_CODE", how="left"
+        )
+        merged_data["deliveryCaptured"] = True
+    else:
+        merged_data["deliveryPct"] = np.nan
+        merged_data["deliveryCaptured"] = False
+    
     try:
         # Append + versioned if history exists
         out_path = "history.parquet"
@@ -256,7 +393,7 @@ def run():
             try:
                 hist = pd.read_parquet(out_path)
                 merged_data = pd.concat([hist, merged_data], ignore_index=True)
-                subset = [c for c in ("SC_CODE", "symbol", "date") if c in merged_data.columns]
+                subset = [c for c in ("SC_CODE", "date") if c in merged_data.columns]
                 if subset:
                     merged_data = merged_data.drop_duplicates(subset=subset, keep="last")
             except Exception as e:
@@ -271,16 +408,9 @@ def run():
             pass
     except Exception as e:
         print(f"Error saving parquet: {e}")
-    # Try to fetch delivery data
-    try:
-        fetch_sec_delivery_pct(today)
-    except Exception:
-        pass
-    # Kaggle upload stub - would require kaggle API setup
-    try:
-        os.environ.get("KAGGLE_USERNAME")  # touch env
-    except Exception:
-        pass
+        raise
+    
+    print(f"Date range: {merged_data['date'].min()} to {merged_data['date'].max()}")
     return merged_data
 
 

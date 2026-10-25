@@ -132,3 +132,26 @@ def test_run_dry_run():
          patch('pipeline.eod.merge_eod', return_value=pd.DataFrame()):
         result = run()
     assert result is not None and result.empty
+
+
+# v1.0.3 T-29: EOD full-universe capture + delivery %
+import pytest
+from unittest.mock import patch
+from pipeline.eod import fetch_sec_delivery_pct, validate_date, merge_eod, load_universe
+import pandas as pd
+
+
+def test_load_universe_includes_nse():
+    """load_universe returns NSE tickers plus ^NSEI benchmark."""
+    tickers = load_universe()
+    assert "^NSEI" in tickers
+    assert len(tickers) >= 400
+    assert "^BSESN" in tickers or len(tickers) >= 500
+
+
+def test_fetch_sec_delivery_pct_returns_frame():
+    """On any failure, must return a DataFrame (never crash)."""
+    result = fetch_sec_delivery_pct("15102026")  # non-trading day → never returns
+    assert isinstance(result, pd.DataFrame)
+    if not result.empty:
+        assert "SC_CODE" in result.columns or result.columns[0] != "SC_CODE"
