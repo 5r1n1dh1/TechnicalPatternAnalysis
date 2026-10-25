@@ -8,4 +8,5 @@
     <color name="on_surface">#FF0F172A</color>
     <color name="accent_green">#FF34D399</color>
     <color name="accent_red">#FFFF4444</color>
+    <color name="ic_launcher_background">#0F172A</color>
 </resources>

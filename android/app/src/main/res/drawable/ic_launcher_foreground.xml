@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- Glass candle trio: 3 candles + trend line -->
+  <group android:translateX="54" android:translateY="54">
+    <!-- Background frosted glass circle -->
+    <path
+        android:fillColor="#44FFFFFF"
+        android:fillAlpha="0.25"
+        android:strokeColor="#88FFFFFF"
+        android:strokeWidth="0.5"
+        android:pathData="M -36,-36 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"/>
+    <!-- Candle 1 (green) -->
+    <rect android:x="-24" android:y="-8" android:width="8" android:height="16"
+        android:fillColor="#34D399" android:fillAlpha="0.9" android:rx="1.5"/>
+    <rect android:x="-22" android:y="-14" android:width="4" android:height="6"
+        android:fillColor="#FDE047" android:fillAlpha="0.9" android:rx="0.8"/>
+    <!-- Candle 2 (red) -->
+    <rect android:x="-4" android:y="-10" android:width="8" android:height="20"
+        android:fillColor="#F87171" android:fillAlpha="0.9" android:rx="1.5"/>
+    <rect android:x="-2" android:y="-16" android:width="4" android:height="6"
+        android:fillColor="#FDE047" android:fillAlpha="0.9" android:rx="0.8"/>
+    <!-- Candle 3 (amber) -->
+    <rect android:x="16" android:y="-6" android:width="8" android:height="14"
+        android:fillColor="#FBBF24" android:fillAlpha="0.85" android:rx="1.5"/>
+    <rect android:x="18" android:y="-12" android:width="4" android:height="6"
+        android:fillColor="#FDE047" android:fillAlpha="0.9" android:rx="0.8"/>
+    <!-- Subtle trend polyline -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#34D399"
+        android:strokeWidth="1"
+        android:strokeAlpha="0.7"
+        android:pathData="M -28,-2 L -14,-4 L -2,1 L 14,-3 L 26,-1"/>
+  </group>
+</vector>
