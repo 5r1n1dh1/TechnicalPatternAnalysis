@@ -63,6 +63,8 @@ enum class Tab { Search, Wishlist, Charts }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NotifChannels.create(this)
+        setupTrendWorker(this)
         setContent {
             TechnicalPatternAnalysisTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -250,4 +252,20 @@ fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
             content()
         }
     }
+}
+
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.tpa.app.notify.NotifChannels
+import java.util.concurrent.TimeUnit
+
+fun setupTrendWorker(ctx: Context) {
+    val work = PeriodicWorkRequestBuilder<com.tpa.app.notify.TrendCheckWorker>(60, TimeUnit.MINUTES)
+        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        .build()
+    WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("trend-check", ExistingPeriodicWorkPolicy.KEEP, work)
 }
