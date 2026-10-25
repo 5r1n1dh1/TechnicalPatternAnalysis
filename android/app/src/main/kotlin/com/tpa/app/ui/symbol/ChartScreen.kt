@@ -34,6 +34,8 @@ import com.tpa.app.ui.chart.DetectionChip
 import com.tpa.app.ui.chart.Interval
 import com.tpa.app.ui.chart.NecklineInfo
 import com.tpa.app.ui.chart.PatternDropdown
+import com.tpa.app.ui.chart.PivotMarker
+import com.tpa.app.ui.chart.PivotPoint
 import com.tpa.app.ui.chart.PatternOverlay
 import com.tpa.app.ui.chart.PatternOverlayRenderer
 import com.tpa.app.ui.chart.Range
@@ -498,6 +500,25 @@ private fun CandleStickCard(
             val overlay = selected?.let { toOverlay(it, candles) }
             if (overlay != null && overlay.anchors.isNotEmpty()) {
                 PatternOverlayRenderer(chart, chart.viewPortHandler).drawPatternOverlay(overlay)
+            }
+
+            // T-49: pivot markers (HIGH/LOW) rendered as scatter dots on selected detection
+            selected?.pivots?.let { pivots ->
+                val pivotEntries = pivots.mapNotNull { p ->
+                    val idx = indexForTime(p.t, candles)
+                    if (idx >= 0) com.github.mikephil.charting.data.Entry(idx.toFloat(), p.price.toFloat()) else null
+                }
+                if (pivotEntries.isNotEmpty()) {
+                    val sds = com.github.mikephil.charting.data.ScatterDataSet(pivotEntries, "Pivots").apply {
+                        setDrawValues(false)
+                        setDrawFilled(true)
+                        fillColor = PivotMarker.glass
+                        color = PivotMarker.highColor
+                        scatterShape = com.github.mikephil.charting.data.ScatterShape.CIRCLE
+                        scatterShapeSize = 7f
+                    }
+                    chart.extraData = com.github.mikephil.charting.data.ScatterData(sds)
+                }
             }
 
             chart.notifyDataSetChanged()

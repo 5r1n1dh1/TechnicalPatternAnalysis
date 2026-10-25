@@ -87,6 +87,7 @@ data class Detection(
     // Present in the trade-plan schema; optional on detections.
     val target_price: Double? = null,
     val stop_price: Double? = null,
+    val pivots: List<Pivot> = emptyList(),
     val risk_reward: Double? = null
 ) {
     /** The server does not send an id; derive a stable one for list keys/highlight. */
@@ -99,7 +100,7 @@ data class Detection(
 data class Anchor(val t: String = "", val price: Double = 0.0)
 
 @Serializable
-data class Neckline(val t: String = "", val price: Double = 0.0)
+data class Pivot(val t: String = "", val price: Double = 0.0, val kind: String = "HIGH")
 
 // ---------------------------------------------------------------------------
 // /api/technicals -> {"rsi14","macdHistNorm","ema20","ema50","adx","atr14pct",
