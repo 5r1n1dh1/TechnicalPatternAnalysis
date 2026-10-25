@@ -51,6 +51,9 @@ import com.tpa.app.ui.symbol.FundamentalsViewModel
 import com.tpa.app.ui.symbol.TechnicalScreen
 import com.tpa.app.ui.symbol.TechnicalViewModel
 import com.tpa.app.ui.theme.TechnicalPatternAnalysisTheme
+import com.tpa.app.data.wishlist.WishlistRepository
+import com.tpa.app.ui.wishlist.WishlistScreen
+import com.tpa.app.ui.wishlist.WishlistViewModel
 import com.tpa.app.ui.theme.glassSurface
 
 private const val DEFAULT_SYMBOL = "RELIANCE"
@@ -147,15 +150,9 @@ fun SearchTab(onOpen: (String) -> Unit) {
 
 @Composable
 fun WishlistTab(onOpen: (String) -> Unit) {
-    GlassCard(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Wishlist", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(modifier = Modifier.height(12.dp))
-            TextButton(onClick = { onOpen(DEFAULT_SYMBOL) }) {
-                Text("Open $DEFAULT_SYMBOL")
-            }
-        }
-    }
+    val repo = remember { WishlistRepository(androidx.compose.ui.platform.LocalContext.current) }
+    val vm = remember { WishlistViewModel(repo) }
+    WishlistScreen(viewModel = vm, onOpen = onOpen)
 }
 
 @Composable
