@@ -72,6 +72,8 @@ class PatternOverlayRenderer(
     fun drawPatternOverlay(pattern: PatternOverlay?) {
         clearOverlays()
         if (pattern == null) {
+            val combined = chart.data as? com.github.mikephil.charting.data.CombinedData
+            combined?.lineData = null
             chart.invalidate()
             return
         }
@@ -162,12 +164,24 @@ class PatternOverlayRenderer(
             overlayDataSets.add(stopSet)
         }
 
+        // T-48: attach drawn overlays to CombinedChart via its lineData so markers render over candles+volume
+        val combined = chart.data as? com.github.mikephil.charting.data.CombinedData
+        if (combined != null && overlayDataSets.isNotEmpty()) {
+            val shared = com.github.mikephil.charting.data.LineData(overlayDataSets)
+            combined.lineData = shared
+        } else if (combined == null) {
+            // Fallback for standalone CandleStickChart: attach directly
+            val lineData = com.github.mikephil.charting.data.LineData(overlayDataSets)
+            (chart.data as? com.github.mikephil.charting.data.CandleData)?.also { cd -> cd.extra = lineData }
+        }
         chart.invalidate()
     }
 
     fun clearOverlays() {
         overlayDataSets.forEach { it.clear() }
         overlayDataSets.clear()
+        val combined = chart.data as? com.github.mikephil.charting.data.CombinedData
+        combined?.lineData = null
         chart.invalidate()
     }
 
