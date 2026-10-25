@@ -7,7 +7,7 @@ import retrofit2.http.Query
 
 interface TpaApi {
     @GET("api/health") suspend fun health(): HealthResponse
-    @GET("api/search") suspend fun search(@Query("q") q: String? = null): List<SearchResult>
+    @GET("api/search") suspend fun search(@Query("q") q: String? = null, @Query("limit") limit: Int = 20): List<SearchResult>
     @GET("api/candles") suspend fun getCandles(@Query("symbol") symbol: String, @Query("interval") interval: String, @Query("range") range: String): retrofit2.Response<CandleResponse>
     @GET("api/patterns") suspend fun getPatterns(@Query("symbol") symbol: String, @Query("interval") interval: String, @Query("range") range: String, @Query("pattern") pattern: String? = null): retrofit2.Response<PatternsResponse>
     @GET("api/trend") suspend fun getTrend(@Query("symbol") symbol: String, @Query("interval") interval: String, @Query("range") range: String): TrendResponse
