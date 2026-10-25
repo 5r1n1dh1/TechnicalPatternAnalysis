@@ -30,30 +30,19 @@ class PredictionsResponse(BaseModel):
     predictions: List[PredictionItem]
     skipped: List[str]
 
-# Module-level cache refreshed only on deploy/reload
-_cache = None
-
 def _load():
-    global _cache
-    try:
-        raw = load_predictions()
-        _cache = raw
-    except StalePredictionsError as e:
-        _cache = {"stale": True, "message": str(e)}
-    return _cache
+    # Always read from disk; predictions.json ≤ 30 KB — freshness beats cache.
+    return load_predictions()
 
 @router.get("/predictions")
 def get_predictions(symbol: Optional[str] = None):
-    data = _load()
-    if isinstance(data, dict) and data.get("stale"):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=503, detail=data["message"])
+    from core.errors import ApiError
+    try:
+        data = _load()
+    except StalePredictionsError as e:
+        raise ApiError(503, "upstreamUnavailable", detail=str(e))
     skipped = data.get("skipped", [])
     preds = data.get("predictions", [])
     if symbol:
         preds = [p for p in preds if p.get("symbol") == symbol]
-    return {
-        "asOf": data.get("asOf"),
-        "predictions": preds,
-        "skipped": skipped
-    }
+    return PredictionsResponse(asOf=data.get("asOf"), predictions=preds, skipped=skipped)
