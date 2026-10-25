@@ -56,9 +56,14 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     ema200 = c.ewm(span=200, adjust=False).mean()
     ema20_50_spread = (ema20 - ema50) / c
     ema50_200_spread = (ema50 - ema200) / c
-    # ADX stub
+    # ADX (Wilder smoothing) — proper 14-period directional movement
     tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
-    adx = 100 * tr.rolling(14).mean() / c
+    plus_dm = pd.Series(np.where((h - h.shift()) > (l.shift() - l), np.maximum(h - h.shift(), 0), 0), index=h.index)
+    minus_dm = pd.Series(np.where((l.shift() - l) > (h - h.shift()), np.maximum(l.shift() - l, 0), 0), index=h.index)
+    plus_di = 100 * (plus_dm.rolling(14, min_periods=14).mean()) / (tr.rolling(14, min_periods=14).mean() + 1e-6)
+    minus_di = 100 * (minus_dm.rolling(14, min_periods=14).mean()) / (tr.rolling(14, min_periods=14).mean() + 1e-6)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di + 1e-6)
+    adx = dx.rolling(14, min_periods=14).mean()
     # ATR%
     atr_pct = tr.rolling(14).mean() / c
     # BB
@@ -91,11 +96,25 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     rel_str20 = (c.pct_change(20) - c.pct_change(20).rolling(20).mean()) / c
     # rvol
     rvol20 = v / v.rolling(20).mean().replace(0, np.nan)
-    # delivery pct stub
-    delivery_pct5 = pd.Series(0.0, index=c.index)
-    # rsi div flags (simple stubs - no lookahead)
-    rsi_div_bear = pd.Series(0.0, index=c.index)
-    rsi_div_bull = pd.Series(0.0, index=c.index)
+    # delivery pct — rolling 5-day mean of the NSE delivery % column (may be NaN if unavailable)
+    # The input df must contain a "deliveryPct" column when available (from pipeline/feature timestamp).
+    # If missing from input, emit NaN (not fake 0.0 — M6 fix).
+    if "deliveryPct" in df.columns:
+        delivery_pct5 = df["deliveryPct"].rolling(5, min_periods=1).mean()
+    else:
+        delivery_pct5 = pd.Series(np.nan, index=c.index)
+    # RSI divergence flags — compare RSI slope vs price slope over 5 bars (no lookahead)
+    # Bullish divergence: price slope negative but RSI slope positive (potential reversal up)
+    # Bearish divergence: price slope positive but RSI slope negative (potential reversal down)
+    # If RSI is unavailable (NaN at warm-up), keep NaN (not 0.0 — M6 fix).
+    try:
+        rsi_5 = rsi14.rolling(5, min_periods=5).mean()
+        rsi_slope_5 = rsi_5.diff()
+    except Exception:
+        rsi_slope_5 = pd.Series(np.nan, index=c.index)
+    price_slope_5 = c.pct_change(5)
+    rsi_div_bear = pd.Series(np.where(price_slope_5 > 0, np.where(rsi_slope_5 < 0, 1.0, np.nan), np.nan), index=c.index)
+    rsi_div_bull = pd.Series(np.where(price_slope_5 < 0, np.where(rsi_slope_5 > 0, 1.0, np.nan), np.nan), index=c.index)
 
     out = pd.DataFrame(
         {
@@ -126,7 +145,10 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             "rsi_div_bull": rsi_div_bull,
         }
     )
-    return out.fillna(0)
+    # Do NOT fill warm-up NaNs with 0 — they must remain NaN (M7 fix).
+    # Callers (train, predict) must dropna on rows where any critical feature is NaN.
+    # We keep the full frame intact so that feature order is preserved.
+    return out
 
 
 def lookahead_bias_test(df):
