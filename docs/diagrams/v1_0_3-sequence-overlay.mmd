@@ -1,0 +1,19 @@
+%% v1.0.3 sequence: pattern overlay + pivots (design/planv1_0_3.md §4.5)
+sequenceDiagram
+    participant U as User (Chart tab)
+    participant VM as ChartViewModel
+    participant API as /api/{candles,patterns,trend}
+    participant CH as CombinedChart + OverlayRenderer
+    U->>VM: setSymbol / updateRange / updateInterval / selectPattern
+    VM->>VM: cancel previous fetch jobs (single-shot Mutex)
+    par candles
+        VM->>API: GET candles(symbol, interval, range)
+    and trend
+        VM->>API: GET trend(symbol, interval, range)
+    and patterns
+        VM->>API: GET patterns(symbol, interval, range, pattern?)
+    end
+    API-->>VM: candles[ISO t,o,h,l,c,v] + detections[anchors ISO + pivots]
+    VM-->>CH: candles → CandleData + BarData(volume, secondary axis)
+    VM-->>CH: anchors ISO → x-index; pivots → scatter dots; neckline/stop/target → lines
+    CH-->>U: drawn overlay + pivot markers

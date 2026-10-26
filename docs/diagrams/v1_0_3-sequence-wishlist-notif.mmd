@@ -1,0 +1,19 @@
+%% v1.0.3 sequence: wishlist trend-change notification (design/planv1_0_3.md §4.4)
+sequenceDiagram
+    participant WM as WorkManager (Periodic 60m)
+    participant W as TrendCheckWorker
+    participant DB as Room WishlistDb
+    participant API as GET /api/trend
+    participant NF as NotificationManager
+    WM->>W: schedule period 60m (battery-safe constraints)
+    W->>DB: read wishlist symbols
+    loop each symbol (sequential, 1 req/s)
+        W->>API: trend(symbol, 1d, 1M)
+        API-->>W: {label, strength}
+        W->>DB: read last seen label
+        alt label changed AND notifications enabled
+            W->>NF: post NOTIF_ID(hash) "RELIANCE: Sideways → Uptrend (72%)"
+            W->>DB: write last label + timestamp
+        end
+    end
+    W-->>WM: success (retry on IOException, backoff 15m)

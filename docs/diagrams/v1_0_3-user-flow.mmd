@@ -1,0 +1,16 @@
+%% v1.0.3 user flow (design/planv1_0_3.md §4.1)
+flowchart TD
+    Start[App cold start] --> Search[Tab 1: SearchScreen<br/>autofocus, live fuzzy results]
+    Wl[Tab 2: WishlistScreen<br/>Room list, trend chips, bell state]
+    Sym[Stacked: SymbolScreen<br/>header + inner tabs]
+    Search -- tap result --> Sym
+    Search -- star icon --> Wl2[add/remove wishlist]
+    Wl -- tap row --> Sym
+    Sym --> F0[Inner Tab: Fundamentals]
+    Sym --> C0[Inner Tab: Charts & Patterns<br/>volume + overlay + pivots]
+    Sym --> T0[Inner Tab: Technicals]
+    C0 --> DP{range/interval/pattern changed?}
+    DP -- yes --> RE[re-fetch candles + trend + patterns + pivots]
+    Sym -- global back btn / system back --> Search
+    Wl -- global back btn / system back --> Search
+    F0 --> Sym

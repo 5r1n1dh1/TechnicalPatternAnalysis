@@ -1,14 +1,15 @@
-name: Release v1.0.2
+name: Release
 on:
   workflow_dispatch:
   push:
-    tags: ['v1.0.2']
+    tags: ['v*']
 permissions:
   contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
     env:
+      TAG: ${{ github.ref_name }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
     steps:
@@ -17,10 +18,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.0.2"
-          if ! gh api repos/${{ github.repository }}/releases/tags/$TAG --silent; then
-            echo "Tag $TAG does not exist; creating manually with gh release create..."
-            gh release create "$TAG" --generate-notes --title "v1.0.2" --notes "Release v1.0.2 — deploy + smoke verified. References VERCEL_PROJECT_ID ($VERCEL_PROJECT_ID) / VERCEL_ORG_ID ($VERCEL_ORG_ID)."
+          TAG="${TAG:-v1.0.2}"
+          if ! gh api "repos/${{ github.repository }}/releases/tags/$TAG" --silent; then
+            echo "Tag $TAG does not exist; creating release manually..."
+            gh release create "$TAG" --generate-notes --title "$TAG" --notes "Release $TAG — CI green, APK attached."
           else
             echo "Tag $TAG exists; attaching release artifact..."
           fi
@@ -38,10 +39,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="${TAG:-v1.0.2}"
           APK=$(ls artifacts/*.apk 2>/dev/null | head -n1)
           if [ -n "$APK" ]; then
-            echo "Attaching $APK to release v1.0.2"
-            gh release upload v1.0.2 "$APK" --clobber || echo "Upload skipped (artifact not found or release missing)"
+            echo "Attaching $APK to release $TAG"
+            gh release upload "$TAG" "$APK" --clobber || echo "Upload skipped (artifact not found or release missing)"
           else
             echo "No APK artifact found; skipping upload."
           fi
