@@ -1,9 +1,13 @@
 """API-level tests for /patterns endpoint (T-37)."""
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from api.patterns import router, Detection, Pivot
 
-client = TestClient(router)
+# The router needs an app wrapper so HTTPException becomes a response status
+app = FastAPI()
+app.include_router(router)
+client = TestClient(app)
 
 POSITIVE_SYMBOL = "TEST"
 
