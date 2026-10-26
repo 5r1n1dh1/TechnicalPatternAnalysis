@@ -1,6 +1,7 @@
 name: CI
 # Secrets come from GitHub secrets (VERCEL_API_KEY, VERCEL_ORG_ID, VERCEL_PROJECT_ID, KAGGLE_API_KEY)
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
