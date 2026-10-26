@@ -1,74 +1,69 @@
 #!/usr/bin/env python3
+"""Generate the bearish head-and-shoulders positive fixture.
+
+Shape: prior uptrend -> left shoulder -> neckline trough -> head (highest)
+-> neckline trough -> right shoulder (level with left shoulder) -> breakdown
+through the neckline. The detector requires exactly this ordering, with the
+head above both shoulders and the shoulders within 10% of each other.
+"""
 import csv
+from pathlib import Path
 
-# Generate bearish head and shoulders
-rows = []
-rows.append(['date','open','high','low','close','volume'])
+OUT = Path(__file__).resolve().parents[1] / "patterns" / "hs_pos.csv"
+
+rows = [["date", "open", "high", "low", "close", "volume"]]
 base_date = 20230101
-# Start with uptrend
-price = 100
-vol = 10000
-for i in range(20):  # build to left shoulder
-    date = base_date + i
-    high = price + 2
-    low = price - 1
-    close = price + 1
-    rows.append([str(date), f'{price:.2f}', f'{high:.2f}', f'{low:.2f}', f'{close:.2f}', str(vol+i*100)])
-    price += 0.5
 
-# Left shoulder peak around here
-ls_idx = len(rows)-1
-# Pull back to form neckline
-for i in range(5):
-    date = base_date + 20 + i
-    high = price + 0.5
-    low = price - 1.5
-    close = price - 1
-    rows.append([str(date), f'{price:.2f}', f'{high:.2f}', f'{low:.2f}', f'{close:.2f}', str(vol+2000+i*50)])
-    price -= 0.5  # down to neckline
 
-t1_price = price  # first trough
-# Head up
-for i in range(10):
-    date = base_date + 25 + i
-    price += 1.0  # head rises
-    high = price + 2.5  # head is higher
-    low = price - 1
-    close = price + 1
-    rows.append([str(date), f'{price-1:.2f}', f'{high:.2f}', f'{low:.2f}', f'{close:.2f}', str(vol+3000+i*100)])
-price = high  # head peak
+def add(close, high, low, volume):
+    rows.append(
+        [
+            str(base_date + len(rows) - 1),
+            f"{close - 0.25:.2f}",
+            f"{high:.2f}",
+            f"{low:.2f}",
+            f"{close:.2f}",
+            str(volume),
+        ]
+    )
 
-# Pull back
-for i in range(5):
-    date = base_date + 35 + i
-    high = price - 0.5
-    low = price - 2
-    close = price - 1.5
-    rows.append([str(date), f'{price:.2f}', f'{high:.2f}', f'{low:.2f}', f'{close:.2f}', str(vol+4000+i*50)])
-    price -= 0.5
 
-t2_price = price  # second trough
-# Right shoulder
+# Phase 1: prior uptrend into the left shoulder (high 111.5 at the last row)
+for i in range(20):
+    close = 101 + 0.5 * i
+    add(close, close + 1.0, close - 2.0, 12000 + i * 150)
+
+# Phase 2: pullback to the first neckline trough (low 100.8)
 for i in range(8):
-    date = base_date + 40 + i
-    price += 0.3  # rises slower
-    high = price + 1.8  # similar to left shoulder (~102-103 level)
-    low = price - 0.8
-    close = price + 0.5
-    rows.append([str(date), f'{price-0.3:.2f}', f'{high:.2f}', f'{low:.2f}', f'{close:.2f}', str(vol+4500+i*80)])
-    price = high
+    close = 110 - 0.9 * (i + 1)
+    add(close, close + 1.0, close - 2.0, 13500 - i * 250)
 
-# Breakout down through neckline
-for i in range(5):
-    date = base_date + 48 + i
-    high = price - 0.5
-    low = price - 2
-    close = price - 1.8
-    rows.append([str(date), f'{price:.2f}', f'{high:.2f}', f'{low:.2f}', f'{close:.2f}', str(vol+5000+i*100)])
-    price -= 1.5
+# Phase 3: rally to the head (high 117.3, above both shoulders)
+for i in range(12):
+    close = 103.8 + 1.0 * (i + 1)
+    add(close, close + 1.5, close - 1.5, 11500 - i * 200)
 
-with open('server/tests/fixtures/patterns/hs_pos.csv', 'w', newline='') as f:
-    w = csv.writer(f)
-    w.writerows(rows)
+# Phase 4: pullback to the second neckline trough (low 100.8)
+for i in range(7):
+    close = 115 - 1.7 * (i + 1)
+    add(close, close + 0.8, close - 2.3, 9000 - i * 100)
 
-print(f'Wrote {len(rows)-1} rows to hs_pos.csv')
+# Phase 5: right shoulder rising to the left-shoulder level (high 111.4)
+for i in range(8):
+    close = 104 + 0.8 * (i + 1)
+    add(close, close + 1.0, close - 1.0, 8200 + i * 100)
+
+# Phase 5b: minor stall before the breakdown
+add(109.5, 110.6, 108.6, 9000)
+
+# Phase 6: breakdown through the neckline on expanding volume
+for close, volume in zip(
+    [108.0, 106.0, 103.5, 100.5, 97.5, 95.0],
+    [18000, 21000, 24000, 28000, 32000, 36000],
+):
+    add(close, close + 0.8, close - 1.2, volume)
+
+with open(OUT, "w", newline="") as f:
+    csv.writer(f).writerows(rows)
+
+print(f"Wrote {len(rows) - 1} rows to {OUT}")

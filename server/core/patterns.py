@@ -105,6 +105,14 @@ def find_pivots(
         atr_window = atr
         offset = 0
 
+    # Prominence is matched elementwise against the smoothed series
+    atr_window = np.asarray(atr_window, dtype=float)
+    if atr_window.size != len(high_smooth):
+        if atr_window.size > len(high_smooth):
+            atr_window = atr_window[-len(high_smooth):]
+        else:
+            atr_window = np.resize(atr_window, len(high_smooth))
+
     # Find peaks in high (swing highs)
     # Prominence calculation: prominence_mult * ATR
     min_prom = prominence_mult * atr_window
@@ -263,18 +271,6 @@ def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
         FlagDetector(),
     ]
 
-    # Compute ATR if not present
-    if 'atr' not in candles.columns:
-        try:
-            high = candles['high'].values
-            low = candles['low'].values
-            close = candles['close'].values
-            atr_vals = atr(high, low, close, period=14)
-            candles = candles.copy()
-            candles['atr'] = atr_vals
-        except Exception:
-            pass
-
     # Setup: exclude current bar from detection eligibility
     setup = candles.iloc[:-1].copy() if len(candles) > 1 else candles.copy()
 
@@ -283,7 +279,12 @@ def detect_patterns(candles: pd.DataFrame, **kwargs) -> List[Detection]:
         high = setup['high'].values
         low = setup['low'].values
         close = setup['close'].values
-        atr_vals = candles['atr'].values if 'atr' in candles.columns else np.ones_like(close)
+        # ATR must be computed over the same window as the prices it is paired with
+        try:
+            atr_vals = atr(high, low, close, period=14)
+        except Exception:
+            atr_vals = np.ones_like(close)
+        setup['atr'] = atr_vals
         pivots = find_pivots(close, high, low, atr_vals, prominence_mult=0.1, use_smoothing=True)
         if len(pivots) < 3:
             pivots = find_pivots(close, high, low, atr_vals, prominence_mult=0.1, use_smoothing=False)
