@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChartLine
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -41,6 +40,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpa.app.network.NetworkModule
@@ -55,6 +55,7 @@ import com.tpa.app.data.wishlist.WishlistRepository
 import com.tpa.app.ui.wishlist.WishlistScreen
 import com.tpa.app.ui.wishlist.WishlistViewModel
 import com.tpa.app.ui.theme.glassSurface
+import com.tpa.app.R
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -128,17 +129,23 @@ fun GlassBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
             .blur(8.dp)
             .glassSurface()
     ) {
-        val items = listOf(
-            Tab.Search to Pair(Icons.Default.Search, "Search"),
-            Tab.Wishlist to Pair(Icons.Default.Star, "Wishlist"),
-            Tab.Charts to Pair(Icons.Default.ChartLine, "Charts")
-        )
-        items.forEach { (tab, pair) ->
+        val tabs = listOf(Tab.Search, Tab.Wishlist, Tab.Charts)
+        tabs.forEach { tab ->
             NavigationBarItem(
                 selected = selected == tab,
                 onClick = { onSelect(tab) },
-                icon = { Icon(pair.first, contentDescription = pair.second, modifier = Modifier.size(24.dp)) },
-                label = { Text(pair.second, fontSize = 11.sp) },
+                icon = {
+                    when (tab) {
+                        Tab.Search -> Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(24.dp))
+                        Tab.Wishlist -> Icon(Icons.Default.Star, contentDescription = "Wishlist", modifier = Modifier.size(24.dp))
+                        Tab.Charts -> Icon(
+                            painterResource(R.drawable.ic_chart),
+                            contentDescription = "Charts",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                },
+                label = { Text(tab.name, fontSize = 11.sp) },
                 alwaysShowLabel = true
             )
         }
@@ -160,15 +167,16 @@ fun SearchTab(onOpen: (String) -> Unit) {
 
 @Composable
 fun WishlistTab(onOpen: (String) -> Unit) {
-    val repo = remember { WishlistRepository(androidx.compose.ui.platform.LocalContext.current) }
-    val vm = remember { WishlistViewModel(repo) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val repo = remember(ctx) { WishlistRepository(ctx) }
+    val vm = remember(repo) { WishlistViewModel(repo) }
     WishlistScreen(viewModel = vm, onOpen = onOpen)
 }
 
 @Composable
 fun ChartsTab() {
-    val api = remember { NetworkModule.provideApi() }
-    val vm = remember { ChartViewModel(api) }
+    val api = NetworkModule.provideApi()
+    val vm = remember(api) { ChartViewModel(api) }
     GlassCard(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         ChartScreen(viewModel = vm, onBack = {})
     }

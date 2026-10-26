@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -20,11 +21,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.github.mikephil.charting.charts.CandleStickChart
+import com.github.mikephil.charting.charts.CombinedChart
+import com.github.mikephil.charting.charts.ScatterChart
 import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.BarData
+import com.github.mikephil.charting.data.BarDataSet
+import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.data.CandleData
 import com.github.mikephil.charting.data.CandleDataSet
 import com.github.mikephil.charting.data.CandleEntry
+import com.github.mikephil.charting.data.CombinedData
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.ScatterData
+import com.github.mikephil.charting.data.ScatterDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.tpa.app.R
 import com.tpa.app.network.Candle
@@ -417,7 +426,7 @@ private fun CandleStickCard(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            CandleStickChart(ctx).apply {
+            CombinedChart(ctx).apply {
                 description = null
                 setDrawGridBackground(false)
                 setBackgroundColor(AndroidColor.TRANSPARENT)
@@ -471,17 +480,21 @@ private fun CandleStickCard(
             }
             labelRef.value = newLabels
 
-            // Volume bars (T-47): real v in BarChart overlaying Candles (overlayed via a second
-            // axis is out of scope here; volume shares left axis with candles so the color encoding
-            // is visible even when values would otherwise crowd the axis).
-            chart.axisRight.isEnabled = true
-            val volumeEntries = ArrayList<com.github.mikephil.charting.data.BarEntry>(candles.size)
+            // Volume bars (T-47): real `v` values are scaled into the lower band of the
+            // price range so they share the left axis with the candles instead of
+            // crowding it. Scaling is linear, so bar heights stay proportional.
+            val priceMin = candles.minOf { it.l.toDouble() }
+            val priceMax = candles.maxOf { it.h.toDouble() }
+            val band = ((priceMax - priceMin).coerceAtLeast(0.01)) * 0.2
+            val maxVolume = candles.maxOf { (it.v ?: 0.0).toDouble() }.coerceAtLeast(1.0)
+            val volumeScale = band / maxVolume
+            val volumeEntries = ArrayList<BarEntry>(candles.size)
             candles.forEachIndexed { idx, candle ->
-                volumeEntries.add(com.github.mikephil.charting.data.BarEntry(idx.toFloat(), (candle.v ?: 0.0f).toFloat()))
+                val scaled = priceMin + (candle.v ?: 0.0).toDouble() * volumeScale
+                volumeEntries.add(BarEntry(idx.toFloat(), scaled.toFloat()))
             }
-            val volDataSet = com.github.mikephil.charting.data.BarDataSet(volumeEntries, "Volume").apply {
+            val volDataSet = BarDataSet(volumeEntries, "Volume").apply {
                 setDrawValues(false)
-                barWidth = 0.3f
                 color = AndroidColor.parseColor("#64748B")
             }
             val priceDataSet = com.github.mikephil.charting.data.CandleDataSet(entries, "Price").apply {
@@ -494,32 +507,40 @@ private fun CandleStickCard(
                 shadowWidth = 0.7f
             }
             val priceData = com.github.mikephil.charting.data.CandleData(priceDataSet)
-            val volumeData = com.github.mikephil.charting.data.BarData(volDataSet)
-            // T-47: CombinedChart with price candles + volume bars below; volume synchronizes via shared x-index.
-            chart.data = com.github.mikephil.charting.data.CombinedData(priceData, volumeData)
+            val volumeData = BarData(volDataSet).apply { barWidth = 0.3f }
+
+            // T-48: pattern overlay lines (anchor polyline, neckline, zone, target, stop)
             val overlay = selected?.let { toOverlay(it, candles) }
-            if (overlay != null && overlay.anchors.isNotEmpty()) {
-                PatternOverlayRenderer(chart, chart.viewPortHandler).drawPatternOverlay(overlay)
-            }
+            val overlayData = PatternOverlayRenderer().buildOverlayData(overlay)
 
             // T-49: pivot markers (HIGH/LOW) rendered as scatter dots on selected detection
-            selected?.pivots?.let { pivots ->
+            val scatterData = selected?.pivots?.let { pivots ->
                 val pivotEntries = pivots.mapNotNull { p ->
                     val idx = indexForTime(p.t, candles)
-                    if (idx >= 0) com.github.mikephil.charting.data.Entry(idx.toFloat(), p.price.toFloat()) else null
+                    if (idx >= 0) Entry(idx.toFloat(), p.price.toFloat()) else null
                 }
-                if (pivotEntries.isNotEmpty()) {
-                    val sds = com.github.mikephil.charting.data.ScatterDataSet(pivotEntries, "Pivots").apply {
+                if (pivotEntries.isEmpty()) {
+                    null
+                } else {
+                    val sds = ScatterDataSet(pivotEntries, "Pivots").apply {
                         setDrawValues(false)
-                        setDrawFilled(true)
-                        fillColor = PivotMarker.glass
-                        color = PivotMarker.highColor
-                        scatterShape = com.github.mikephil.charting.data.ScatterShape.CIRCLE
-                        scatterShapeSize = 7f
+                        setHighlightEnabled(false)
+                        color = PivotMarker.highColor.toArgb()
+                        setScatterShapeHoleColor(PivotMarker.glass.toArgb())
+                        setScatterShape(ScatterChart.ScatterShape.CIRCLE)
+                        setScatterShapeSize(7f)
                     }
-                    chart.extraData = com.github.mikephil.charting.data.ScatterData(sds)
+                    ScatterData(sds)
                 }
             }
+
+            // CombinedChart carries price candles, volume bars, overlay lines and pivots.
+            val combined = CombinedData()
+            combined.setData(priceData)
+            combined.setData(volumeData)
+            if (overlayData != null) combined.setData(overlayData)
+            if (scatterData != null) combined.setData(scatterData)
+            chart.data = combined
 
             chart.notifyDataSetChanged()
             chart.invalidate()

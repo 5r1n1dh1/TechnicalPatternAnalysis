@@ -100,6 +100,9 @@ data class Detection(
 data class Anchor(val t: String = "", val price: Double = 0.0)
 
 @Serializable
+data class Neckline(val t: String = "", val price: Double = 0.0)
+
+@Serializable
 data class Pivot(val t: String = "", val price: Double = 0.0, val kind: String = "HIGH")
 
 // ---------------------------------------------------------------------------

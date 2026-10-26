@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Candle 1 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,6 h4 v10 h-4 z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.5,3 h1 v16 h-1 z"/>
+    <!-- Candle 2 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,8 h4 v10 h-4 z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11.5,5 h1 v16 h-1 z"/>
+    <!-- Candle 3 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17,4 h4 v10 h-4 z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18.5,2 h1 v15 h-1 z"/>
+</vector>
