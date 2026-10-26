@@ -14,20 +14,32 @@
         android:strokeWidth="0.5"
         android:pathData="M -36,-36 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"/>
     <!-- Candle 1 (green) -->
-    <rect android:x="-24" android:y="-8" android:width="8" android:height="16"
-        android:fillColor="#34D399" android:fillAlpha="0.9" android:rx="1.5"/>
-    <rect android:x="-22" android:y="-14" android:width="4" android:height="6"
-        android:fillColor="#FDE047" android:fillAlpha="0.9" android:rx="0.8"/>
+    <path
+        android:fillColor="#34D399"
+        android:fillAlpha="0.9"
+        android:pathData="M -22.5,-8 H -17.5 A 1.5,1.5 0 0 1 -16,-6.5 V 6.5 A 1.5,1.5 0 0 1 -17.5,8 H -22.5 A 1.5,1.5 0 0 1 -24,6.5 V -6.5 A 1.5,1.5 0 0 1 -22.5,-8 Z"/>
+    <path
+        android:fillColor="#FDE047"
+        android:fillAlpha="0.9"
+        android:pathData="M -21.2,-14 H -18.8 A 0.8,0.8 0 0 1 -18,-13.2 V -8.8 A 0.8,0.8 0 0 1 -18.8,-8 H -21.2 A 0.8,0.8 0 0 1 -22,-8.8 V -13.2 A 0.8,0.8 0 0 1 -21.2,-14 Z"/>
     <!-- Candle 2 (red) -->
-    <rect android:x="-4" android:y="-10" android:width="8" android:height="20"
-        android:fillColor="#F87171" android:fillAlpha="0.9" android:rx="1.5"/>
-    <rect android:x="-2" android:y="-16" android:width="4" android:height="6"
-        android:fillColor="#FDE047" android:fillAlpha="0.9" android:rx="0.8"/>
+    <path
+        android:fillColor="#F87171"
+        android:fillAlpha="0.9"
+        android:pathData="M -2.5,-10 H 2.5 A 1.5,1.5 0 0 1 4,-8.5 V 8.5 A 1.5,1.5 0 0 1 2.5,10 H -2.5 A 1.5,1.5 0 0 1 -4,8.5 V -8.5 A 1.5,1.5 0 0 1 -2.5,-10 Z"/>
+    <path
+        android:fillColor="#FDE047"
+        android:fillAlpha="0.9"
+        android:pathData="M -1.2,-16 H 1.2 A 0.8,0.8 0 0 1 2,-15.2 V -10.8 A 0.8,0.8 0 0 1 1.2,-10 H -1.2 A 0.8,0.8 0 0 1 -2,-10.8 V -15.2 A 0.8,0.8 0 0 1 -1.2,-16 Z"/>
     <!-- Candle 3 (amber) -->
-    <rect android:x="16" android:y="-6" android:width="8" android:height="14"
-        android:fillColor="#FBBF24" android:fillAlpha="0.85" android:rx="1.5"/>
-    <rect android:x="18" android:y="-12" android:width="4" android:height="6"
-        android:fillColor="#FDE047" android:fillAlpha="0.9" android:rx="0.8"/>
+    <path
+        android:fillColor="#FBBF24"
+        android:fillAlpha="0.85"
+        android:pathData="M 17.5,-6 H 22.5 A 1.5,1.5 0 0 1 24,-4.5 V 6.5 A 1.5,1.5 0 0 1 22.5,8 H 17.5 A 1.5,1.5 0 0 1 16,6.5 V -4.5 A 1.5,1.5 0 0 1 17.5,-6 Z"/>
+    <path
+        android:fillColor="#FDE047"
+        android:fillAlpha="0.9"
+        android:pathData="M 18.8,-12 H 21.2 A 0.8,0.8 0 0 1 22,-11.2 V -6.8 A 0.8,0.8 0 0 1 21.2,-6 H 18.8 A 0.8,0.8 0 0 1 18,-6.8 V -11.2 A 0.8,0.8 0 0 1 18.8,-12 Z"/>
     <!-- Subtle trend polyline -->
     <path
         android:fillColor="#00000000"
