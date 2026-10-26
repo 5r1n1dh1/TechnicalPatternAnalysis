@@ -509,10 +509,11 @@ W3  T-51 ──► T-52
 **Commit:** `v1.0.3 T-50: VM scoping + error surfaces; flicker eliminated`
 
 ### T-51 — Version bump + release (P0)
-**Files:** `android/app/build.gradle.kts` (versionCode 2, versionName "1.0.3"), tag `v1.0.3`
-**Commands:** verify CI green → `gh run download <run-id> -n release-apk -D dist` → `git tag -a v1.0.3 -m "v1.0.3: ML truth, wishlist+notifications, light theme, chart overhaul" && git push origin v1.0.3` → release workflow attaches APK.
-**DoD:** `gh release view v1.0.3` shows the APK asset > 3 MB.
-**Commit:** `v1.0.3 T-51: bump 1.0.3 and tag release`
+**Files:** `android/app/build.gradle.kts` (versionCode 104, versionName "1.0.4"), tag `v1.0.4`
+**Commands:** verify CI green → `gh run download <run-id> -n release-apk -D dist` → `git tag -a v1.0.4 -m "v1.0.4: chart overlay, wishlist, light theme, pattern engine fix" && git push origin v1.0.4` → release workflow attaches APK.
+**DoD:** `gh release view v1.0.4` shows the APK asset (APK 3.37 MB; 1.58 MB as the compressed CI artifact).
+**Commit:** `v1.0.4 T-51: bump 1.0.4 and tag release`
+**Note:** v1.0.3 was already published (Oct 25) from an early T-28 commit, so the completed scope ships as v1.0.4. No production keystore exists in repo secrets yet, so the release APK is signed with the debug key.
 
 ### T-52 — Docs + diagrams truth pass (P1)
 **Files:** `design/api.md` (search/patterns/trend/predictions deltas), `design/plan.md` §11 statuses, `docs/diagrams/v1_0_3-user-flow.mmd` (copy §4.1), `docs/diagrams/v1_0_3-sequence-wishlist-notif.mmd` (§4.4), `docs/diagrams/v1_0_3-sequence-overlay.mmd` (§4.5)
@@ -544,30 +545,30 @@ FCM/push, intraday charting, new pattern families, screener redesign, accounts, 
 ## 10. Task tracker
 | ID | Task | Pri | Wave | Status |
 |---|---|---|---|---|
-| T-28 | Backfill fix (real universe history) | P0 | W1 | [ ] |
-| T-29 | EOD full universe + delivery% | P0 | W1 | [ ] |
-| T-30 | Real features | P0 | W1 | [ ] |
-| T-31 | Leakage-free honest training | P0 | W1 | [ ] |
-| T-32 | Predict + scan real; delete kaggle.py | P0 | W1 | [ ] |
-| T-33 | Workflow chaining | P0 | W1 | [ ] |
-| T-34 | Predictions served honestly | P0 | W1 | [ ] |
-| T-35 | Fuzzy search + limit | P1 | W1 | [ ] |
-| T-36 | Trend ema50/adx real | P0 | W1 | [ ] |
-| T-37 | Pattern API engine + pivots + ISO | P0 | W1 | [ ] |
-| T-38 | Shared resampling; kill double-prefix | P0 | W1 | [ ] |
-| T-39 | Fundamentals cache + mapping fixes | P1 | W1 | [ ] |
-| T-40 | dataAsOf fix | P2 | W1 | [ ] |
-| T-41 | Nav restructure + global back | P0 | W2 | [ ] |
-| T-42 | Theme system-follow + light + tokens | P0 | W2 | [ ] |
-| T-43 | Live search | P0 | W2 | [ ] |
-| T-44 | Wishlist Room screen | P0 | W2 | [ ] |
-| T-45 | Trend notifications | P0 | W2 | [ ] |
-| T-46 | Adaptive high-DPI icon | P0 | W2 | [ ] |
-| T-47 | Volume sub-chart | P0 | W2 | [ ] |
-| T-48 | Overlay renders | P0 | W2 | [ ] |
-| T-49 | Pivots + re-trigger | P0 | W2 | [ ] |
-| T-50 | Flicker elimination | P0 | W2 | [ ] |
-| T-51 | Release v1.0.3 | P0 | W3 | [ ] |
-| T-52 | Docs + diagrams truth | P1 | W3 | [ ] |
+| T-28 | Backfill fix (real universe history) | P0 | W1 | [x] |
+| T-29 | EOD full universe + delivery% | P0 | W1 | [x] |
+| T-30 | Real features | P0 | W1 | [x] |
+| T-31 | Leakage-free honest training | P0 | W1 | [x] |
+| T-32 | Predict + scan real; delete kaggle.py | P0 | W1 | [x] |
+| T-33 | Workflow chaining | P0 | W1 | [x] |
+| T-34 | Predictions served honestly | P0 | W1 | [x] |
+| T-35 | Fuzzy search + limit | P1 | W1 | [x] |
+| T-36 | Trend ema50/adx real | P0 | W1 | [x] |
+| T-37 | Pattern API engine + pivots + ISO | P0 | W1 | [x] |
+| T-38 | Shared resampling; kill double-prefix | P0 | W1 | [x] |
+| T-39 | Fundamentals cache + mapping fixes | P1 | W1 | [x] |
+| T-40 | dataAsOf fix | P2 | W1 | [x] |
+| T-41 | Nav restructure + global back | P0 | W2 | [x] |
+| T-42 | Theme system-follow + light + tokens | P0 | W2 | [x] |
+| T-43 | Live search | P0 | W2 | [x] |
+| T-44 | Wishlist Room screen | P0 | W2 | [x] |
+| T-45 | Trend notifications | P0 | W2 | [x] |
+| T-46 | Adaptive high-DPI icon | P0 | W2 | [x] |
+| T-47 | Volume sub-chart | P0 | W2 | [x] |
+| T-48 | Overlay renders | P0 | W2 | [x] |
+| T-49 | Pivots + re-trigger | P0 | W2 | [x] |
+| T-50 | Flicker elimination | P0 | W2 | [x] |
+| T-51 | Release v1.0.4 | P0 | W3 | [x] |
+| T-52 | Docs + diagrams truth | P1 | W3 | [x] |
 
 **Wave gates:** W1 → ML chain serves real predictions + all API deltas green; W2 → APK artifact with every UX delta verified on emulator; W3 → Release published with APK + docs truthful.

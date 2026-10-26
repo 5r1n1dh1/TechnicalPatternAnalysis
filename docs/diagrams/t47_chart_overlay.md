@@ -47,7 +47,8 @@ sequenceDiagram
 ```
 
 ## Implementation notes
-- Chart host: `android/app/src/main/kotlin/com/tpa/app/ui/symbol/ChartScreen.kt` — one `CombinedChart` carrying price candles, volume bars and pivot scatter (`chart.extraData`).
-- Overlay: `android/app/src/main/kotlin/com/tpa/app/ui/chart/PatternOverlayRenderer.kt`; pivots: `android/app/src/main/kotlin/com/tpa/app/ui/chart/PivotMarker.kt`; volume: `android/app/src/main/kotlin/com/tpa/app/ui/chart/VolumeBars.kt`.
+- Chart host: `android/app/src/main/kotlin/com/tpa/app/ui/symbol/ChartScreen.kt` — one `CombinedChart` carrying price candles, volume bars and pivot scatter (`CombinedData` components: candle, bar, line, scatter).
+- Volume bars use the real `v` value, linearly scaled into the lower 20% of the price range so they share the left axis with the candles instead of crowding it.
+- Overlay: `android/app/src/main/kotlin/com/tpa/app/ui/chart/PatternOverlayRenderer.kt` builds the overlay `LineData`; pivots: `android/app/src/main/kotlin/com/tpa/app/ui/chart/PivotMarker.kt`; volume: `android/app/src/main/kotlin/com/tpa/app/ui/chart/VolumeBars.kt`.
 - Anchor/pivot timestamps are ISO strings; `indexForTime` maps them to candle indices (exact match, then same-day fallback).
 - Flicker elimination (T-50): view models are scoped to the `NavBackStackEntry`, so a recomposition or tab switch reuses the loaded state instead of refetching into an empty screen.
