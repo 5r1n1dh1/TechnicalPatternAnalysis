@@ -71,9 +71,9 @@ class PatternsResponse(BaseModel):
 @router.get("/patterns", response_model=PatternsResponse)
 def get_patterns(
     symbol: str = Query(..., description="Stock symbol"),
-    interval: Interval = Query(..., description="Time interval"),
-    range: Range = Query(..., description="Data range"),
-    pattern: Optional[Pattern] = Query(None, description="Specific pattern"),
+    interval: str = Query(..., description="Time interval"),
+    range: str = Query(..., description="Data range"),
+    pattern: Optional[str] = Query(None, description="Specific pattern"),
 ):
     """Detect chart patterns over a range."""
     try:
@@ -89,10 +89,13 @@ def get_patterns(
     # Validate interval/range combo
     allowed_intervals = {"5m", "15m", "30m", "1h", "1d", "1w", "1M"}
     allowed_ranges = {"1D", "5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y"}
-    if interval.value not in allowed_intervals or range.value not in allowed_ranges:
+    allowed_patterns = {"head_and_shoulders", "cup_and_handle", "double_triple", "flag"}
+    if interval not in allowed_intervals or range not in allowed_ranges:
+        raise HTTPException(status_code=400, detail="invalidCombo")
+    if pattern is not None and pattern not in allowed_patterns:
         raise HTTPException(status_code=400, detail="invalidCombo")
 
-    df = load_bars(symbol, interval.value, range.value)
+    df = load_bars(symbol, interval, range)
     if df is None or df.empty:
         raise HTTPException(status_code=404, detail="unknownSymbol")
 
@@ -110,7 +113,7 @@ def get_patterns(
     if "date" not in df.columns and "t" in df.columns:
         df = df.rename(columns={"t": "date"})
 
-    detections = cp.detect_patterns(df, pattern=pattern.value if pattern else None)
+    detections = cp.detect_patterns(df, pattern=pattern)
     payload = cp.build_detection_payload(df, detections)
 
     results = []

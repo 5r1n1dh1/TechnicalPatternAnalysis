@@ -21,16 +21,16 @@ def fixture_df(name):
 def test_positive_fixtures_api(fname, monkeypatch):
     import core.patterns as cp
     df = fixture_df(fname)
-    monkeypatch.setattr(cp, "detect_patterns", lambda c, **kw: cp.build_detection_payload(df, [
+    monkeypatch.setattr(cp, "detect_patterns", lambda c, **kw: [
         cp.Detection(
             pattern="head_and_shoulders", direction="bearish", confidence=80,
             anchors=[{"t":"0","price":100}, {"t":"5","price":110}, {"t":"10","price":100}],
             neckline={"t":"2","price":105},
             pivot_idx=[(0,100,True),(2,105,False),(5,110,True),(7,108,False),(10,100,True)]
         )
-    ]))
+    ])
     # Mock load_bars to return fixture data with 'date' column mapped
-    import server.core.bars as bars_mod
+    import core.bars as bars_mod
     def mock_load(symbol, interval, range_str):
         df2 = df.copy()
         df2["date"] = df2.index.map(lambda i: f"2023-01-{i+1:02d}T10:00:00Z")
@@ -51,7 +51,7 @@ def test_positive_fixtures_api(fname, monkeypatch):
 
 def test_negative_fixtures_api(monkeypatch):
     import core.patterns as cp
-    import server.core.bars as bars_mod
+    import core.bars as bars_mod
     for fname in ["hs_neg.csv", "cup_neg.csv", "double_neg.csv", "flag_neg.csv", "noisy_flat.csv"]:
         df = fixture_df(fname)
         monkeypatch.setattr(cp, "detect_patterns", lambda c, **kw: [])
@@ -68,7 +68,7 @@ def test_negative_fixtures_api(monkeypatch):
 
 def test_pattern_filter(monkeypatch):
     import core.patterns as cp
-    import server.core.bars as bars_mod
+    import core.bars as bars_mod
     df = fixture_df("hs_pos.csv")
     monkeypatch.setattr(cp, "detect_patterns", lambda c, pattern=None, **kw: [
         cp.Detection(pattern="head_and_shoulders", direction="bearish", confidence=75,
@@ -87,7 +87,7 @@ def test_pattern_filter(monkeypatch):
 
 
 def test_unknown_symbol(monkeypatch):
-    import server.core.bars as bars_mod
+    import core.bars as bars_mod
     monkeypatch.setattr(bars_mod, "load_bars", lambda *a, **kw: None)
     resp = client.get("/patterns", params={"symbol":"BAD", "interval":"1d", "range":"1Y"})
     assert resp.status_code == 404
