@@ -55,6 +55,14 @@ import com.tpa.app.data.wishlist.WishlistRepository
 import com.tpa.app.ui.wishlist.WishlistScreen
 import com.tpa.app.ui.wishlist.WishlistViewModel
 import com.tpa.app.ui.theme.glassSurface
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.tpa.app.notify.NotifChannels
+import java.util.concurrent.TimeUnit
 
 private const val DEFAULT_SYMBOL = "RELIANCE"
 
@@ -253,15 +261,6 @@ fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
         }
     }
 }
-
-import android.content.Context
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import com.tpa.app.notify.NotifChannels
-import java.util.concurrent.TimeUnit
 
 fun setupTrendWorker(ctx: Context) {
     val work = PeriodicWorkRequestBuilder<com.tpa.app.notify.TrendCheckWorker>(60, TimeUnit.MINUTES)
