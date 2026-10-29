@@ -377,7 +377,13 @@ private fun OverlayLegend(detection: Detection) {
             LegendSwatch("Anchors", directionColor, filled = true)
             LegendSwatch("Neckline", Color(0xFFFBBF24), filled = false)
             if (detection.target_price != null) LegendSwatch("Target", directionColor, filled = false)
-            if (detection.stop_price != null) LegendSwatch("Stop", MaterialTheme.colorScheme.error, filled = false)
+            if (detection.stop_price != null) {
+                LegendSwatch(
+                    "Stop",
+                    if (isBull) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    filled = false
+                )
+            }
         }
     }
 }
@@ -514,14 +520,18 @@ private fun CandleStickCard(
                     levelLine("Neckline " + formatPrice(price), price.toFloat(), 0xFFFBBF24.toInt(), textColor, true)
                 )
             }
+            // Bullish setups target higher and stop lower; bearish setups invert.
+            val isBull = selected?.direction?.lowercase(Locale.US)?.startsWith("bull") == true
+            val targetColor = if (isBull) upColor else downColor
+            val stopColor = if (isBull) downColor else upColor
             selected?.target_price?.let { price ->
                 chart.axisLeft.addLimitLine(
-                    levelLine("Target " + formatPrice(price), price.toFloat(), upColor, textColor, false)
+                    levelLine("Target " + formatPrice(price), price.toFloat(), targetColor, textColor, false)
                 )
             }
             selected?.stop_price?.let { price ->
                 chart.axisLeft.addLimitLine(
-                    levelLine("Stop " + formatPrice(price), price.toFloat(), downColor, textColor, false)
+                    levelLine("Stop " + formatPrice(price), price.toFloat(), stopColor, textColor, false)
                 )
             }
 
