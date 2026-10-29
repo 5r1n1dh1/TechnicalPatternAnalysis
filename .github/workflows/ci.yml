@@ -38,6 +38,12 @@ jobs:
         run: |
           cd android
           ./gradlew :app:compileReleaseKotlin
+      - name: Unit tests
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.parallel=false'
+        run: |
+          cd android
+          ./gradlew :app:testReleaseUnitTest
       - name: Assemble Release (with R8)
         env:
           GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.parallel=false'

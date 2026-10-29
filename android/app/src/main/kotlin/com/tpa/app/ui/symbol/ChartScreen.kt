@@ -55,12 +55,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private const val DEFAULT_SYMBOL = "RELIANCE"
-
-private val UpColor = Color(0xFF34D399)
-private val DownColor = Color(0xFFF87171)
-private val MutedColor = Color(0xFF94A3B8)
-
 /** All intervals the API accepts, in ascending order. */
 private val AllIntervals = listOf("5m", "15m", "30m", "1h", "1d", "1w", "1M")
 
@@ -69,27 +63,25 @@ private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 private val labelFormat = SimpleDateFormat("dd MMM", Locale.US)
 
 @Composable
-fun ChartScreen(viewModel: ChartViewModel, onBack: () -> Unit) {
+fun ChartTab(viewModel: ChartViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
 
-    // The ViewModel starts with no symbol; load a default so the tab is usable immediately.
-    LaunchedEffect(Unit) {
-        if (state.symbol.isBlank()) viewModel.setSymbol(DEFAULT_SYMBOL)
-    }
-
     val error = state.error
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         when {
-            state.isLoading -> Box(
+            state.isLoading && state.candles.isEmpty() -> Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
 
-            error != null -> ErrorSurface(error = error, onRetry = { viewModel.fetchCandles() })
+            error != null && state.candles.isEmpty() -> ErrorSurface(
+                error = error,
+                onRetry = { viewModel.fetchCandles() }
+            )
 
-            else -> ChartContent(state = state, viewModel = viewModel, onBack = onBack)
+            else -> ChartContent(state = state, viewModel = viewModel)
         }
     }
 }
@@ -97,8 +89,7 @@ fun ChartScreen(viewModel: ChartViewModel, onBack: () -> Unit) {
 @Composable
 private fun ChartContent(
     state: ChartState,
-    viewModel: ChartViewModel,
-    onBack: () -> Unit
+    viewModel: ChartViewModel
 ) {
     val validIntervals = remember(state.range) { derivedStateOf { validIntervalsFor(state.range) } }.value
     val selectedDetection = remember(state.selectedPattern, state.detections) { derivedStateOf { state.detections.firstOrNull { it.id == state.selectedPattern } } }.value
@@ -107,71 +98,47 @@ private fun ChartContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(12.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Header: symbol identity + quick stats.
-        Column(modifier = Modifier.fillMaxWidth().glassSurface().padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().glassSurface().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (state.trend.isNotBlank()) {
+                val t = state.trend.lowercase(Locale.US)
+                val trendColor = when {
+                    t.contains("up") || t.contains("bull") -> MaterialTheme.colorScheme.primary
+                    t.contains("down") || t.contains("bear") -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                val trendText = if (state.trendStrength > 0) "${state.trend} ${state.trendStrength}%" else state.trend
                 Text(
-                    text = state.symbol.ifBlank { "—" },
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    text = trendText,
+                    color = trendColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
                 )
-                Spacer(Modifier.width(8.dp))
-                if (state.trend.isNotBlank()) {
-                    val t = state.trend.lowercase(Locale.US)
-                    val trendColor = when {
-                        t.contains("up") || t.contains("bull") -> UpColor
-                        t.contains("down") || t.contains("bear") -> DownColor
-                        else -> MutedColor
-                    }
-                    val trendText = if (state.trendStrength > 0) "${state.trend} ${state.trendStrength}%" else state.trend
-                    Text(
-                        text = trendText,
-                        color = trendColor,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onBack) { Text("Back") }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.sector.isNotBlank()) {
-                    Text(state.sector, color = MutedColor, fontSize = 12.sp)
-                    Spacer(Modifier.width(10.dp))
-                }
-                if (state.eodPrice.isNotBlank()) {
-                    Text("EOD ${state.eodPrice}", color = MutedColor, fontSize = 12.sp)
-                }
+            if (state.sector.isNotBlank()) {
+                Text(
+                    text = state.sector,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 10.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            if (state.eodPrice.isNotBlank()) {
+                Text(
+                    text = "EOD ${state.eodPrice}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
             }
         }
-
-        // Symbol switcher.
-        var symbolInput by remember { mutableStateOf(state.symbol) }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = symbolInput,
-                onValueChange = { symbolInput = it.uppercase(Locale.US) },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                label = { Text("Symbol") }
-            )
-            Button(
-                onClick = { if (symbolInput.isNotBlank()) viewModel.setSymbol(symbolInput) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Text("Load")
-            }
+        if (state.isLoading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
         // Filters.
@@ -206,7 +173,7 @@ private fun ChartContent(
             if (state.candles.isEmpty()) {
                 Text(
                     text = "No candle data for ${state.symbol}",
-                    color = MutedColor,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
@@ -223,7 +190,7 @@ private fun ChartContent(
             Text(
                 text = "Pattern Detections",
                 style = MaterialTheme.typography.titleSmall,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.width(8.dp))
@@ -232,10 +199,10 @@ private fun ChartContent(
             }
         }
         state.patternsError?.let {
-            Text("Patterns: $it", color = DownColor, fontSize = 11.sp)
+            Text("Patterns: $it", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
         }
         if (state.detections.isEmpty() && !state.patternsLoading) {
-            Text("No patterns detected.", color = MutedColor, fontSize = 12.sp)
+            Text("No patterns detected.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.detections) { detection ->
@@ -259,29 +226,29 @@ private fun ChartContent(
                     Text(
                         text = if (plan.pattern.isNotBlank()) "Trade Plan · ${plan.pattern}" else "Trade Plan",
                         style = MaterialTheme.typography.titleSmall,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "R:R ${String.format(Locale.US, "%.2f", plan.rr)}",
-                        color = if (plan.rr >= 3) UpColor else if (plan.rr >= 2) Color(0xFFFBBF24) else DownColor,
+                        color = if (plan.rr >= 3) MaterialTheme.colorScheme.primary else if (plan.rr >= 2) Color(0xFFFBBF24) else MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    PlanMetric("Entry", plan.entry.price, UpColor)
-                    PlanMetric("Stop", plan.stop.price, DownColor)
-                    PlanMetric("Target", plan.target.price, UpColor)
+                    PlanMetric("Entry", plan.entry.price, MaterialTheme.colorScheme.primary)
+                    PlanMetric("Stop", plan.stop.price, MaterialTheme.colorScheme.error)
+                    PlanMetric("Target", plan.target.price, MaterialTheme.colorScheme.primary)
                 }
                 if (plan.invalidation.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
-                    Text("Invalidation: ${plan.invalidation}", color = MutedColor, fontSize = 11.sp)
+                    Text("Invalidation: ${plan.invalidation}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
                 if (plan.positionSize > 0) {
                     Spacer(Modifier.height(4.dp))
-                    Text("Position size: ${plan.positionSize}", color = MutedColor, fontSize = 11.sp)
+                    Text("Position size: ${plan.positionSize}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
             }
         }
@@ -291,7 +258,7 @@ private fun ChartContent(
             }
         }
         state.tradePlanError?.let {
-            Text("Trade plan: $it", color = DownColor, fontSize = 11.sp)
+            Text("Trade plan: $it", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
         }
 
         Spacer(Modifier.height(4.dp))
@@ -301,7 +268,7 @@ private fun ChartContent(
 @Composable
 private fun PlanMetric(label: String, value: Double, color: Color) {
     Column {
-        Text(label, fontSize = 10.sp, color = MutedColor)
+        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = String.format(Locale.US, "%.2f", value),
             fontSize = 13.sp,
@@ -321,11 +288,11 @@ private fun ErrorSurface(error: String, onRetry: () -> Unit) {
             modifier = Modifier.fillMaxWidth().glassCard().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Chart unavailable", color = DownColor, fontWeight = FontWeight.Bold)
+            Text("Chart unavailable", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Text(
                 text = error,
-                color = MutedColor,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
             )
@@ -334,7 +301,7 @@ private fun ErrorSurface(error: String, onRetry: () -> Unit) {
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             ) {
                 Text("Retry")
@@ -372,7 +339,7 @@ private fun IntervalSelector(
             Text(
                 text = "Interval: ${interval.value}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = { expanded = true }) {
@@ -380,7 +347,7 @@ private fun IntervalSelector(
                     imageVector = ImageVector.vectorResource(R.drawable.ic_menu_down),
                     contentDescription = "Select interval",
                     modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }

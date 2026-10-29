@@ -35,13 +35,13 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
             Text(
                 text = "VERDICT",
                 style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFF94A3B8)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             val verdictColor = when (decision.verdict) {
-                "INVEST" -> Color(0xFF34D399)
-                "SHORT" -> Color(0xFFF87171)
+                "INVEST" -> MaterialTheme.colorScheme.primary
+                "SHORT" -> MaterialTheme.colorScheme.error
                 "WAIT" -> Color(0xFFFBBF24)
-                else -> Color(0xFF94A3B8)
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
             }
             Badge(
                 containerColor = verdictColor.copy(alpha = 0.15f),
@@ -56,7 +56,7 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
         }
         Text(
             text = "Confidence ${"%.0f".format(decision.confidence * 100)}%",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 12.sp
         )
 
@@ -66,7 +66,7 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
             Text(
                 text = "Component Scores",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF94A3B8)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 componentScores.take(5).forEach { score: ComponentScore ->
@@ -74,12 +74,12 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
                         Text(
                             text = score.component,
                             fontSize = 9.sp,
-                            color = Color(0xFF94A3B8)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = score.score.toInt().toString(),
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF34D399),
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp
                         )
                     }
@@ -92,7 +92,7 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
             Text(
                 text = "Reasons",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF94A3B8)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LazyColumn(
                 modifier = Modifier.heightIn(max = 120.dp),
@@ -102,7 +102,7 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
                     Text(
                         text = "• $reason",
                         fontSize = 11.sp,
-                        color = Color(0xFFE2E8F0)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -115,7 +115,7 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
             Text(
                 text = "Red Flags",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFF87171)
+                color = MaterialTheme.colorScheme.error
             )
             redFlags.forEach { flag: RedFlag ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -124,8 +124,8 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
                             .size(8.dp)
                             .background(
                                 color = when (flag.severity) {
-                                    "CRITICAL" -> Color(0xFFFF4444)
-                                    "HIGH" -> Color(0xFFF87171)
+                                    "CRITICAL" -> MaterialTheme.colorScheme.error
+                                    "HIGH" -> MaterialTheme.colorScheme.error
                                     else -> Color(0xFFFBBF24)
                                 },
                                 shape = RoundedCornerShape(50)
@@ -137,12 +137,12 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
                             text = flag.title,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
-                            color = Color(0xFFE2E8F0)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = flag.detail,
                             fontSize = 10.sp,
-                            color = Color(0xFF94A3B8)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

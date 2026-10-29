@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant U as User
+    participant N as TpaApp (NavState)
+    participant H as HazeState
+    participant B as GlassBottomBar
+    participant S as Screen
+
+    U->>N: tap Wishlist tab
+    N->>N: selectTab(Wishlist) clears detail
+    N->>S: recompose WishlistScreen
+    S-->>H: content layer has Modifier.haze(HazeState)
+    B-->>H: hazeChild registers bar bounds
+    H-->>B: samples content pixels behind bar, applies blur + tint
+    B-->>U: frosted bar over scrolling content
+    U->>S: tap symbol card
+    S->>N: openSymbol(symbol, Chart)
+    N->>S: SymbolDetailScreen(symbol)
+    S->>S: key(symbol) -> ChartViewModel(api, symbol)
+    U->>S: tap Fundamentals
+    S->>N: selectSymbolTab(Fundamentals)
+    N->>S: recompose fundamentals content

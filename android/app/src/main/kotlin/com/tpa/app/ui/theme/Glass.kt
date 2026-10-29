@@ -7,52 +7,61 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeChild
 
-private val GlassWhite = Color(0xFFFFFFFF)
-internal val GlassBorderLight = Color(0x33000000)
-internal val GlassBorderDark = Color(0x1FFFFFFF)
+private val CardShape = RoundedCornerShape(24.dp)
+private val BarShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
 /**
- * Glassmorphism surface: 8% white alpha fill, 1dp 12%-white border, 20dp corner radius.
- * Optional [elevation] adds a soft outer shadow for depth layering.
+ * Translucent frosted panel. Reads [LocalTpaTokens] so light and dark both get
+ * the correct fill, border and highlight.
  */
 @Composable
 fun Modifier.glassSurface(
-    light: Boolean = false,
-    elevation: Float = 0f
+    shape: Shape = CardShape,
+    alphaScale: Float = 1f
 ): Modifier {
-    val borderColor = if (light) GlassBorderLight else GlassBorderDark
-    val gradientColors = if (light) {
-        listOf(Color(0xCCFFFFFF), Color(0xAAFFFFFF))
-    } else {
-        listOf(Color(0x0DFFFFFF), Color(0x08FFFFFF))
-    }
-    var m = this
-        .clip(RoundedCornerShape(20.dp))
-        .background(brush = Brush.linearGradient(colors = gradientColors))
-        .border(
-            width = 1.dp,
-            color = borderColor,
-            shape = RoundedCornerShape(20.dp)
-        )
-    if (elevation > 0f) {
-        m = m.background(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color(0x1A000000),
-                    Color(0x00000000)
-                ),
-                radius = elevation * 20f
-            )
-        )
-    }
-    return m
+    val tokens = LocalTpaTokens.current
+    val base = tokens.glassFill
+    val fill = base.copy(alpha = (base.alpha * alphaScale).coerceIn(0f, 1f))
+    val bottom = fill.copy(alpha = fill.alpha * 0.55f)
+    return this
+        .clip(shape)
+        .background(Brush.verticalGradient(listOf(fill, bottom)))
+        .border(width = 1.dp, color = tokens.glassBorder, shape = shape)
 }
 
 @Composable
-fun Modifier.glassSurfaceL(elevation: Float = 0f): Modifier = glassSurface(light = true, elevation = elevation)
+fun Modifier.glassCard(): Modifier = glassSurface(CardShape)
 
+/**
+ * Bottom bar: blurs the content behind it with Haze, then tints the result.
+ * The tint is drawn over the blurred backdrop, never instead of it.
+ */
 @Composable
-fun Modifier.glassCard(): Modifier = glassSurface(elevation = 4f)
+fun Modifier.glassBar(hazeState: HazeState): Modifier {
+    val tokens = LocalTpaTokens.current
+    val tintAlpha = if (tokens.isDark) 0.45f else 0.62f
+    val tint = tokens.surface.copy(alpha = tintAlpha)
+    val style = HazeStyle(
+        tint = tint,
+        blurRadius = 26.dp,
+        noiseFactor = 0f
+    )
+    return this
+        .hazeChild(hazeState, BarShape, style)
+        .clip(BarShape)
+        .background(
+            Brush.verticalGradient(
+                listOf(
+                    tint.copy(alpha = tintAlpha * 0.92f),
+                    tint.copy(alpha = tintAlpha)
+                )
+            )
+        )
+        .border(1.dp, tokens.glassBorder, BarShape)
+}

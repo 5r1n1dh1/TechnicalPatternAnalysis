@@ -27,11 +27,11 @@ fun TechnicalScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(12.dp)) {
-        Text("Technicals", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
+        Text("Technicals", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
 
         if (technical == null) {
-            Text("Technicals unavailable.", color = Color(0xFF94A3B8), fontSize = 12.sp)
+            Text("Technicals unavailable.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         } else {
             // Gauges row
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -65,7 +65,7 @@ fun TechnicalScreen(
                 addAll(technical.s_r.support.map { it to "S" })
             }
             if (levels.isNotEmpty()) {
-                Text("S / R Ladder", style = MaterialTheme.typography.titleSmall, color = Color(0xFFE2E8F0))
+                Text("S / R Ladder", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     levels.take(6).forEach { (sr, kind) ->
                         Row(
@@ -73,9 +73,9 @@ fun TechnicalScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(kind, color = if (kind == "R") Color(0xFFF87171) else Color(0xFF34D399), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text(sr.price.format(2), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text("Str ${sr.strength} • ${sr.touches}t • ${sr.volume.toInt()}", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                            Text(kind, color = if (kind == "R") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(sr.price.format(2), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Str ${sr.strength} • ${sr.touches}t • ${sr.volume.toInt()}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                         }
                     }
                 }
@@ -89,7 +89,7 @@ fun TechnicalScreen(
 
             // Candle chips (real per-candle patterns)
             if (technical.candleChips.isNotEmpty()) {
-                Text("Candle Chips", style = MaterialTheme.typography.titleSmall, color = Color(0xFFE2E8F0))
+                Text("Candle Chips", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(technical.candleChips) { chip ->
                         Chip(label = chip.pattern, value = chip.strength.toString(), indicator = chip.date)
@@ -116,8 +116,8 @@ private fun GaugeCard(title: String, value: String) {
         modifier = Modifier.glassSurface().padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(title, fontSize = 10.sp, color = Color(0xFF94A3B8))
-        Text(value, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+        Text(title, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
     }
 }
 
@@ -125,8 +125,8 @@ private fun GaugeCard(title: String, value: String) {
 private fun TrendBadge(trend: String) {
     val t = trend.lowercase(Locale.US)
     val color = when {
-        t.contains("up") || t.contains("bull") -> Color(0xFF34D399)
-        t.contains("down") || t.contains("bear") -> Color(0xFFF87171)
+        t.contains("up") || t.contains("bull") -> MaterialTheme.colorScheme.primary
+        t.contains("down") || t.contains("bear") -> MaterialTheme.colorScheme.error
         else -> Color(0xFFFBBF24)
     }
     Row(
@@ -135,15 +135,15 @@ private fun TrendBadge(trend: String) {
     ) {
         Box(modifier = Modifier.size(10.dp).background(color, RoundedCornerShape(50)))
         Spacer(Modifier.width(6.dp))
-        Text(trend, color = Color.White, fontWeight = FontWeight.Bold)
+        Text(trend, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun StructureChip(structure: String) {
     val color = when (structure) {
-        "UP", "CHOCH_UP", "MSS_UP" -> Color(0xFF34D399)
-        "DOWN", "CHOCH_DOWN", "MSS_DOWN" -> Color(0xFFF87171)
+        "UP", "CHOCH_UP", "MSS_UP" -> MaterialTheme.colorScheme.primary
+        "DOWN", "CHOCH_DOWN", "MSS_DOWN" -> MaterialTheme.colorScheme.error
         else -> Color(0xFFFBBF24)
     }
     Row(
@@ -152,17 +152,17 @@ private fun StructureChip(structure: String) {
     ) {
         Box(modifier = Modifier.size(10.dp).background(color, RoundedCornerShape(50)))
         Spacer(Modifier.width(6.dp))
-        Text(structure, color = Color.White, fontWeight = FontWeight.Bold)
+        Text(structure, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun VerdictCard(verdict: com.tpa.app.network.Verdict) {
     Column(modifier = Modifier.fillMaxWidth().glassSurface().padding(12.dp)) {
-        Text("Indicator Verdict", style = MaterialTheme.typography.titleSmall, color = Color(0xFFE2E8F0))
+        Text("Indicator Verdict", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            VerdictItem("Bull", verdict.bullish.toString(), Color(0xFF34D399))
-            VerdictItem("Bear", verdict.bearish.toString(), Color(0xFFF87171))
+            VerdictItem("Bull", verdict.bullish.toString(), MaterialTheme.colorScheme.primary)
+            VerdictItem("Bear", verdict.bearish.toString(), MaterialTheme.colorScheme.error)
             VerdictItem("Neutral", verdict.neutral.toString(), Color(0xFFFBBF24))
         }
     }
@@ -171,7 +171,7 @@ private fun VerdictCard(verdict: com.tpa.app.network.Verdict) {
 @Composable
 private fun VerdictItem(label: String, value: String, color: Color) {
     Column {
-        Text(label, fontSize = 10.sp, color = Color(0xFF94A3B8))
+        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, fontWeight = FontWeight.Bold, color = color, fontSize = 14.sp)
     }
 }
@@ -179,7 +179,7 @@ private fun VerdictItem(label: String, value: String, color: Color) {
 @Composable
 private fun MLOutlookCard(ml: MlBlock) {
     Column(modifier = Modifier.fillMaxWidth().glassSurface().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("ML Outlook", style = MaterialTheme.typography.titleSmall, color = Color(0xFFE2E8F0))
+        Text("ML Outlook", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
         MlRow("H1", ml.h1.up, ml.h1.down, ml.h1.sideways)
         MlRow("H2", ml.h2.up, ml.h2.down, ml.h2.sideways)
         MlRow("H5", ml.h5.up, ml.h5.down, ml.h5.sideways)
@@ -189,19 +189,19 @@ private fun MLOutlookCard(ml: MlBlock) {
 @Composable
 private fun MlRow(label: String, up: Double, down: Double, sideways: Double) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, fontSize = 11.sp, color = Color(0xFF94A3B8), modifier = Modifier.width(24.dp))
-        Text("↑ ${fmt(up * 100, 0)}%", color = Color(0xFF34D399), fontSize = 12.sp)
-        Text("↓ ${fmt(down * 100, 0)}%", color = Color(0xFFF87171), fontSize = 12.sp)
-        Text("↔ ${fmt(sideways * 100, 0)}%", color = Color(0xFF94A3B8), fontSize = 12.sp)
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(24.dp))
+        Text("↑ ${fmt(up * 100, 0)}%", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+        Text("↓ ${fmt(down * 100, 0)}%", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+        Text("↔ ${fmt(sideways * 100, 0)}%", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
     }
 }
 
 @Composable
 private fun Chip(label: String, value: String, indicator: String) {
     Column(modifier = Modifier.glassSurface().padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 9.sp, color = Color(0xFF94A3B8))
-        Text(value, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
-        Text(indicator, fontSize = 9.sp, color = Color(0xFF34D399))
+        Text(label, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+        Text(indicator, fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
     }
 }
 

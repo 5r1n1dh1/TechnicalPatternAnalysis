@@ -14,14 +14,15 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 class ChartViewModel(
-    private val api: TpaApi
+    private val api: TpaApi,
+    initialSymbol: String = ""
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChartState())
     val state: StateFlow<ChartState> = _state
 
     init {
-        fetchCandles()
+        if (initialSymbol.isNotBlank()) setSymbol(initialSymbol)
     }
 
     fun setSymbol(symbol: String) {

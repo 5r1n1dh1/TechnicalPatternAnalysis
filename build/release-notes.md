@@ -1,3 +1,46 @@
+v1.1.0 — versionCode 110, versionName 1.1.0
+
+Android refactor (app review fixes)
+
+Navigation
+- Bottom tabs now always work, including while a symbol is open; selecting a
+  tab closes the symbol detail.
+- New navigation state (`NavState`) is a pure value with reducers, saved across
+  configuration changes, and covered by unit tests.
+- Symbol detail has working segmented tabs: Chart / Fundamentals / Technicals.
+
+Landing screen
+- Home is a real landing page: search field with 300 ms debounce, inline
+  results, quick symbols, and a wishlist preview with "See all".
+- Wishlist cards open the symbol; remove action and notification toggle work.
+- Charts tab keeps a symbol switcher and uses the last opened symbol instead of
+  starting blank.
+
+Glassmorphism
+- Backdrop blur is now done with Haze: the content layer is blurred behind the
+  bottom bar instead of blurring the bar itself.
+- Glass cards use translucent theme tokens (light and dark) rather than opaque
+  surfaces; light theme is fully legible.
+- Soft gradient/aurora background behind all screens.
+
+Cleanup
+- One Retrofit API instance and one Room database per process (`AppContainer`
+  owned by `TpaApplication`).
+- Removed dead screens/view-models and duplicated wishlist stack.
+- Notification preference and periodic worker cannot drift apart.
+
+Build
+- CI now runs Android unit tests in addition to release compile + assemble.
+- Two Compose UI tests moved to `androidTest`; stale Mockito-based
+  `ChartViewModelTest` deleted (Mockito was never on the test classpath, so it
+  could not run).
+
+APK
+- Built and uploaded by GitHub Actions (`release-apk`).
+- Still signed with the throwaway debug key; replace before public distribution.
+
+---
+
 v1.0.4 — versionCode 104, versionName 1.0.4
 
 Shipped scope (completes the v1.0.3 plan, T-28..T-52):

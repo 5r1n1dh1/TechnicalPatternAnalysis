@@ -1,0 +1,19 @@
+flowchart TD
+    A[App launch] --> B[TpaApplication.container]
+    B --> C[TpaApp + HazeState]
+    C --> D{NavState.detail?}
+    D -- no --> E{Bottom tab}
+    E -- Home --> F[HomeScreen: search + wishlist preview]
+    E -- Wishlist --> G[WishlistScreen]
+    E -- Charts --> H[ChartsTab: last symbol]
+    F -- result/card tap --> I[openSymbol]
+    G -- card tap --> I
+    H -- symbol switch --> I
+    I --> J[SymbolDetailScreen]
+    J --> K{Inner tab}
+    K -- Chart --> L[ChartTab]
+    K -- Fundamentals --> M[FundamentalsTab]
+    K -- Technicals --> N[TechnicalsTab]
+    J -- back --> D
+    E -- any tab --> O[selectTab clears detail]
+    O --> E
