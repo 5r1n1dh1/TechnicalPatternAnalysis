@@ -575,10 +575,9 @@ private fun levelLine(
 ): LimitLine = LimitLine(price, label).apply {
     lineColor = color
     lineWidth = 1.2f
-    textStyle.apply {
-        this.color = textColor
-        textSize = Utils.convertDpToPixel(9f)
-    }
+    // `this.` is required: the function parameters shadow the inherited members.
+    this.textColor = textColor
+    this.textSize = Utils.convertDpToPixel(9f)
     labelPosition = LimitLine.LimitLabelPosition.RIGHT_TOP
     if (dashed) enableDashedLine(10f, 6f, 0f)
 }
