@@ -30,104 +30,36 @@ data class PatternOverlay(
 )
 
 /**
- * Builds the MPAndroidChart line overlays for a detected pattern.
- * All coordinates are in chart space: X = candle index, Y = price.
- * The result is attached to the CombinedChart as its LineData component, so the
- * overlay renders above the candles and the volume bars.
+ * Builds the MPAndroidChart line overlay for a detected pattern: one polyline
+ * through the anchors, colored by direction, with a visible dot per anchor.
+ * Horizontal levels (neckline, target, stop) are drawn as labeled axis limit
+ * lines by the chart, so they stay readable at any zoom.
  */
 class PatternOverlayRenderer {
 
     private val colorGreenUp = Color.parseColor("#34D399")
     private val colorRedDown = Color.parseColor("#F87171")
-    private val colorBgShade = Color.parseColor("#1A34D399")
 
-    /**
-     * Returns the overlay lines for [pattern], or null when there is nothing to draw.
-     */
     fun buildOverlayData(pattern: PatternOverlay?): LineData? {
         if (pattern == null || pattern.anchors.isEmpty()) return null
 
-        val overlayDataSets = mutableListOf<ILineDataSet>()
+        val color = if (pattern.direction == "bull") colorGreenUp else colorRedDown
 
-        // 1. Anchor polyline (solid line through all anchor points)
-        val anchorEntries = pattern.anchors.map { p ->
-            Entry(p.candleIndex.toFloat(), p.price.toFloat())
+        val anchorEntries = pattern.anchors.map { point ->
+            Entry(point.candleIndex.toFloat(), point.price.toFloat())
         }
-        val anchorSet = LineDataSet(anchorEntries, "Anchor")
-        anchorSet.color = colorGreenUp
-        anchorSet.setDrawValues(false)
-        anchorSet.setDrawCircles(false)
-        anchorSet.lineWidth = 2f
-        anchorSet.mode = LineDataSet.Mode.LINEAR
-        overlayDataSets.add(anchorSet)
-
-        // 2. Neckline (dashed line through the neckline anchor)
-        pattern.neckline?.let { neckline ->
-            val necklineEntries = listOf(
-                Entry(neckline.startX, neckline.startY),
-                Entry(neckline.endX, neckline.endY)
-            )
-            val necklineSet = LineDataSet(necklineEntries, "Neckline")
-            necklineSet.color = colorRedDown
-            necklineSet.setDrawValues(false)
-            necklineSet.setDrawCircles(false)
-            necklineSet.lineWidth = 1.5f
-            necklineSet.enableDashedLine(8f, 4f, 0f)
-            overlayDataSets.add(necklineSet)
+        val anchorSet = LineDataSet(anchorEntries, "Pattern anchors").apply {
+            this.color = color
+            lineWidth = 2f
+            mode = LineDataSet.Mode.LINEAR
+            setDrawValues(false)
+            setDrawCircles(true)
+            setCircleColors(listOf(color))
+            circleRadius = 3.5f
+            setDrawCircleHole(false)
+            setHighlightEnabled(false)
         }
 
-        // 3. Shaded zone between the pattern extremes
-        val prices = pattern.anchors.map { it.price }
-        val minPrice = prices.minOrNull() ?: 0.0
-        val maxPrice = prices.maxOrNull() ?: 0.0
-        val leftX = pattern.anchors.first().candleIndex.toFloat()
-        val rightX = pattern.anchors.last().candleIndex.toFloat()
-        val shadedEntries = listOf(
-            Entry(leftX, minPrice.toFloat()),
-            Entry(leftX, maxPrice.toFloat()),
-            Entry(rightX, maxPrice.toFloat()),
-            Entry(rightX, minPrice.toFloat()),
-            Entry(leftX, minPrice.toFloat())
-        )
-        val shadedSet = LineDataSet(shadedEntries, "Pattern Zone")
-        shadedSet.setDrawValues(false)
-        shadedSet.setDrawCircles(false)
-        shadedSet.fillColor = colorBgShade
-        shadedSet.setDrawFilled(true)
-        shadedSet.color = colorBgShade
-        shadedSet.setHighlightEnabled(false)
-        overlayDataSets.add(shadedSet)
-
-        // 4. Target line (green for bullish, red for bearish)
-        pattern.targetPrice?.let { target ->
-            val targetEntries = listOf(
-                Entry(leftX, target.toFloat()),
-                Entry(rightX, target.toFloat())
-            )
-            val targetSet = LineDataSet(targetEntries, "Target")
-            targetSet.color = if (pattern.direction == "bull") colorGreenUp else colorRedDown
-            targetSet.setDrawValues(false)
-            targetSet.setDrawCircles(false)
-            targetSet.lineWidth = 1.5f
-            targetSet.enableDashedLine(8f, 4f, 0f)
-            overlayDataSets.add(targetSet)
-        }
-
-        // 5. Stop line (red for bullish, green for bearish)
-        pattern.stopPrice?.let { stop ->
-            val stopEntries = listOf(
-                Entry(leftX, stop.toFloat()),
-                Entry(rightX, stop.toFloat())
-            )
-            val stopSet = LineDataSet(stopEntries, "Stop")
-            stopSet.color = if (pattern.direction == "bull") colorRedDown else colorGreenUp
-            stopSet.setDrawValues(false)
-            stopSet.setDrawCircles(false)
-            stopSet.lineWidth = 1.5f
-            stopSet.enableDashedLine(8f, 4f, 0f)
-            overlayDataSets.add(stopSet)
-        }
-
-        return LineData(overlayDataSets)
+        return LineData(listOf<ILineDataSet>(anchorSet))
     }
 }

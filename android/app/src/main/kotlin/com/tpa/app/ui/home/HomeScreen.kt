@@ -16,15 +16,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tpa.app.network.TpaApi
 import com.tpa.app.ui.components.EmptyView
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.components.SymbolCard
 import com.tpa.app.ui.search.SearchField
 import com.tpa.app.ui.search.SearchResults
@@ -43,7 +48,14 @@ fun HomeScreen(
     val searchVm = remember(api) { SearchViewModel(api) }
     val searchState by searchVm.state.collectAsState()
     val saved by wishlistVm.entries.collectAsState()
-    val searching = searchState.query.isNotBlank()
+    // The field owns its text locally so every keystroke renders immediately,
+    // independent of the debounced request state in the ViewModel.
+    var query by rememberSaveable { mutableStateOf("") }
+    val searching = query.isNotBlank()
+
+    // Debounced in the ViewModel; also re-runs after a configuration change
+    // restores non-empty text.
+    LaunchedEffect(query) { searchVm.onQueryChange(query) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -67,11 +79,15 @@ fun HomeScreen(
         }
 
         item {
-            SearchField(
-                query = searchState.query,
-                onQueryChange = searchVm::onQueryChange,
-                onSearch = {}
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SearchField(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSearch = { searchVm.retry() },
+                    modifier = Modifier.weight(1f)
+                )
+                GuideButton("Search", "search", "quick")
+            }
         }
 
         if (searching) {
@@ -83,7 +99,11 @@ fun HomeScreen(
                 )
             }
             item {
-                SearchResults(state = searchState, onOpenSymbol = onOpenSymbol)
+                SearchResults(
+                    state = searchState,
+                    onOpenSymbol = onOpenSymbol,
+                    onRetry = searchVm::retry
+                )
             }
         } else {
             item {

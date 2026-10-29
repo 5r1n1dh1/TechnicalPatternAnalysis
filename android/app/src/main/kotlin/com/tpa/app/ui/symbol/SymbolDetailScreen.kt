@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpa.app.AppContainer
 import com.tpa.app.ui.navigation.SymbolTab
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.theme.glassSurface
 import com.tpa.app.ui.wishlist.WishlistViewModel
 
@@ -71,6 +72,7 @@ fun SymbolDetailScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            GuideButton("Symbol page guide", "chart", "trend", "detection", "technicals", "fundamentals", "eod")
             TextButton(onClick = { wishlistVm.toggle(symbol) }) {
                 Icon(
                     Icons.Default.Star,

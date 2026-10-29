@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant U as User
+    participant UI as Chart UI
+    participant VM as ChartViewModel
+    participant B as ProgressBus
+    participant API as Server
+
+    U->>UI: select interval 1w
+    UI->>VM: updateInterval(1w)
+    VM->>VM: clamp range to 1Y
+    VM->>B: begin
+    VM->>API: candles, trend, patterns (1w/1Y)
+    B-->>UI: active > 0 shows progress bar
+    API-->>VM: data
+    VM->>B: end
+    VM-->>UI: candles + detections + trend

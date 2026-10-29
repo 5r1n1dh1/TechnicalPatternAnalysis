@@ -17,6 +17,7 @@ import com.tpa.app.network.DecisionResponse
 import com.tpa.app.network.MlBlock
 import com.tpa.app.network.SrLevel
 import com.tpa.app.network.TechnicalResponse
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.theme.glassSurface
 import java.util.Locale
 
@@ -27,7 +28,20 @@ fun TechnicalScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(12.dp)) {
-        Text("Technicals", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Technicals",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            GuideButton(
+                "Technicals guide",
+                "technicals", "rsi", "macd", "ema", "adx", "atr", "bb",
+                "volratio", "delivery", "sr", "candlechip", "verdict"
+            )
+        }
         Spacer(Modifier.height(8.dp))
 
         if (technical == null) {
@@ -65,7 +79,15 @@ fun TechnicalScreen(
                 addAll(technical.s_r.support.map { it to "S" })
             }
             if (levels.isNotEmpty()) {
-                Text("S / R Ladder", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "S / R Ladder",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    GuideButton("Support and resistance", "sr")
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     levels.take(6).forEach { (sr, kind) ->
                         Row(
@@ -159,7 +181,15 @@ private fun StructureChip(structure: String) {
 @Composable
 private fun VerdictCard(verdict: com.tpa.app.network.Verdict) {
     Column(modifier = Modifier.fillMaxWidth().glassSurface().padding(12.dp)) {
-        Text("Indicator Verdict", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Indicator Verdict",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            GuideButton("Indicator verdict", "verdict", "rsi", "macd", "adx")
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             VerdictItem("Bull", verdict.bullish.toString(), MaterialTheme.colorScheme.primary)
             VerdictItem("Bear", verdict.bearish.toString(), MaterialTheme.colorScheme.error)
@@ -179,7 +209,15 @@ private fun VerdictItem(label: String, value: String, color: Color) {
 @Composable
 private fun MLOutlookCard(ml: MlBlock) {
     Column(modifier = Modifier.fillMaxWidth().glassSurface().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("ML Outlook", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "ML Outlook",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            GuideButton("ML outlook", "components", "verdict")
+        }
         MlRow("H1", ml.h1.up, ml.h1.down, ml.h1.sideways)
         MlRow("H2", ml.h2.up, ml.h2.down, ml.h2.sideways)
         MlRow("H5", ml.h5.up, ml.h5.down, ml.h5.sideways)

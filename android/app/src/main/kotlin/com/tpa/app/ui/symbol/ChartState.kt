@@ -18,7 +18,10 @@ data class ChartState(
     val interval: Interval = Interval("1d"),
     // Server range enum is uppercase ("1Y"); lowercase breaks /candles.
     val range: Range = Range("1Y"),
+    // Client-side selection: detection id shown on the chart.
     val selectedPattern: String? = null,
+    // Server-side pattern type filter, never a detection id.
+    val patternFilter: String? = null,
     val detections: List<Detection> = emptyList(),
     val tradePlan: ActivePlan? = null,
     val patternsLoading: Boolean = false,

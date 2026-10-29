@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.tpa.app.notify.notificationsEnabled
 import com.tpa.app.notify.setNotificationsEnabled
 import com.tpa.app.ui.components.EmptyView
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.components.SymbolCard
 
 @Composable
@@ -63,6 +64,7 @@ fun WishlistScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            GuideButton("Wishlist guide", "wishlist", "bell")
             IconButton(
                 onClick = {
                     val next = !notifications

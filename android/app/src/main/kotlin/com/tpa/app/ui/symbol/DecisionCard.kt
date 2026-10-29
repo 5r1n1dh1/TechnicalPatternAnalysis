@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.tpa.app.network.DecisionResponse
 import com.tpa.app.network.ComponentScore
 import com.tpa.app.network.RedFlag
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.theme.glassSurface
 
 @Composable
@@ -32,11 +33,14 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "VERDICT",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "VERDICT",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                GuideButton("Decision guide", "verdict", "components", "redflags", "confidence")
+            }
             val verdictColor = when (decision.verdict) {
                 "INVEST" -> MaterialTheme.colorScheme.primary
                 "SHORT" -> MaterialTheme.colorScheme.error
@@ -63,11 +67,15 @@ fun DecisionCard(decision: DecisionResponse, modifier: Modifier = Modifier) {
         // Component scores row
         val componentScores = decision.resolvedComponentScores
         if (componentScores.isNotEmpty()) {
-            Text(
-                text = "Component Scores",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Component Scores",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                GuideButton("Score components", "components", "confidence")
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 componentScores.take(5).forEach { score: ComponentScore ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

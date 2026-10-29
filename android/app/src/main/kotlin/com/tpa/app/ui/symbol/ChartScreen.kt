@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -14,8 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.github.mikephil.charting.charts.CombinedChart
 import com.github.mikephil.charting.charts.ScatterChart
+import com.github.mikephil.charting.components.LimitLine
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
@@ -35,32 +35,34 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.ScatterData
 import com.github.mikephil.charting.data.ScatterDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
-import com.tpa.app.R
 import com.tpa.app.network.Candle
 import com.tpa.app.network.Detection
 import com.tpa.app.ui.chart.AnchorPoint
+import com.tpa.app.ui.chart.ChartFilters
 import com.tpa.app.ui.chart.DetectionChip
-import com.tpa.app.ui.chart.Interval
 import com.tpa.app.ui.chart.NecklineInfo
-import com.tpa.app.ui.chart.PatternDropdown
 import com.tpa.app.ui.chart.PivotMarker
-import com.tpa.app.ui.chart.PivotPoint
 import com.tpa.app.ui.chart.PatternOverlay
 import com.tpa.app.ui.chart.PatternOverlayRenderer
-import com.tpa.app.ui.chart.Range
-import com.tpa.app.ui.chart.RangeDropdown
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.theme.glassCard
 import com.tpa.app.ui.theme.glassSurface
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** All intervals the API accepts, in ascending order. */
-private val AllIntervals = listOf("5m", "15m", "30m", "1h", "1d", "1w", "1M")
-
 private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
 private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 private val labelFormat = SimpleDateFormat("dd MMM", Locale.US)
+
+/** Server pattern enums for the optional detection filter; null means all. */
+private val PatternFilters = listOf<Pair<String?, String>>(
+    null to "All",
+    "head_and_shoulders" to "H&S",
+    "cup_and_handle" to "Cup & handle",
+    "double_triple" to "Double / triple",
+    "flag" to "Flag"
+)
 
 @Composable
 fun ChartTab(viewModel: ChartViewModel, modifier: Modifier = Modifier) {
@@ -78,7 +80,8 @@ fun ChartTab(viewModel: ChartViewModel, modifier: Modifier = Modifier) {
 
             error != null && state.candles.isEmpty() -> ErrorSurface(
                 error = error,
-                onRetry = { viewModel.fetchCandles() }
+                onRetry = { viewModel.fetchCandles() },
+                onReset = viewModel::resetToDefault
             )
 
             else -> ChartContent(state = state, viewModel = viewModel)
@@ -91,7 +94,6 @@ private fun ChartContent(
     state: ChartState,
     viewModel: ChartViewModel
 ) {
-    val validIntervals = remember(state.range) { derivedStateOf { validIntervalsFor(state.range) } }.value
     val selectedDetection = remember(state.selectedPattern, state.detections) { derivedStateOf { state.detections.firstOrNull { it.id == state.selectedPattern } } }.value
 
     Column(
@@ -136,31 +138,22 @@ private fun ChartContent(
                     fontSize = 12.sp
                 )
             }
+            GuideButton("Chart terms", "chart", "eod", "trend", "sector")
         }
         if (state.isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
-        // Filters.
-        PatternDropdown(symbol = state.symbol) { pattern ->
-            viewModel.selectPattern(pattern)
-            viewModel.loadPatterns()
-        }
-
-        RangeDropdown(symbol = state.symbol, range = state.range) { range ->
-            viewModel.updateRange(range)
-            // Keep the interval valid for the newly selected range.
-            val allowed = validIntervalsFor(range)
-            if (allowed.none { it.value == state.interval.value }) {
-                allowed.firstOrNull()?.let { viewModel.updateInterval(it) }
-            }
-        }
-
-        IntervalSelector(
+        ChartFilters(
+            range = state.range,
             interval = state.interval,
-            validIntervals = validIntervals,
-            onIntervalChange = { viewModel.updateInterval(it) }
+            onRangeChange = viewModel::updateRange,
+            onIntervalChange = viewModel::updateInterval
         )
+
+        selectedDetection?.let { detection ->
+            OverlayLegend(detection)
+        }
 
         // Candlestick chart.
         Box(
@@ -180,9 +173,20 @@ private fun ChartContent(
                 CandleStickCard(
                     candles = state.candles,
                     selected = selectedDetection,
+                    upColor = MaterialTheme.colorScheme.primary.toArgb(),
+                    downColor = MaterialTheme.colorScheme.error.toArgb(),
+                    textColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
+                    gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f).toArgb(),
                     modifier = Modifier.fillMaxSize()
                 )
             }
+        }
+        if (selectedDetection == null && state.detections.isNotEmpty()) {
+            Text(
+                text = "Tap a detection below to draw it on the chart.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
         }
 
         // Detections.
@@ -197,9 +201,34 @@ private fun ChartContent(
             if (state.patternsLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
             }
+            Spacer(Modifier.weight(1f))
+            GuideButton("Pattern detections", "detection", "confidence", "rr", "overlay")
         }
-        state.patternsError?.let {
-            Text("Patterns: $it", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(PatternFilters) { (value, label) ->
+                FilterChip(
+                    selected = state.patternFilter == value,
+                    onClick = { viewModel.setPatternFilter(value) },
+                    label = { Text(label, fontSize = 11.sp) }
+                )
+            }
+        }
+        if (state.patternsLoading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(
+                text = "Scanning patterns on ${state.interval.value} · ${state.range.value}…",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
+        }
+        state.patternsError?.let { message ->
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(message, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { viewModel.loadPatterns() }) { Text("Retry") }
+                    TextButton(onClick = { viewModel.resetToDefault() }) { Text("Reset 1d · 1Y") }
+                }
+            }
         }
         if (state.detections.isEmpty() && !state.patternsLoading) {
             Text("No patterns detected.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
@@ -229,12 +258,15 @@ private fun ChartContent(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "R:R ${String.format(Locale.US, "%.2f", plan.rr)}",
-                        color = if (plan.rr >= 3) MaterialTheme.colorScheme.primary else if (plan.rr >= 2) Color(0xFFFBBF24) else MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "R:R ${String.format(Locale.US, "%.2f", plan.rr)}",
+                            color = if (plan.rr >= 3) MaterialTheme.colorScheme.primary else if (plan.rr >= 2) Color(0xFFFBBF24) else MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        GuideButton("Trade plan", "entry", "stop", "target", "invalidation", "position", "rr")
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -253,9 +285,12 @@ private fun ChartContent(
             }
         }
         if (state.tradePlanLoading) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-            }
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(
+                text = "Building trade plan…",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
         }
         state.tradePlanError?.let {
             Text("Trade plan: $it", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
@@ -279,7 +314,7 @@ private fun PlanMetric(label: String, value: Double, color: Color) {
 }
 
 @Composable
-private fun ErrorSurface(error: String, onRetry: () -> Unit) {
+private fun ErrorSurface(error: String, onRetry: () -> Unit, onReset: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         contentAlignment = Alignment.Center
@@ -297,94 +332,76 @@ private fun ErrorSurface(error: String, onRetry: () -> Unit) {
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            ) {
-                Text("Retry")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRetry) { Text("Retry") }
+                Button(
+                    onClick = onReset,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Text("Reset 1d · 1Y")
+                }
             }
         }
     }
 }
 
-/**
- * Interval picker. [IntervalDropdown] keeps its validity matrix private (and keyed by a
- * different range vocabulary), so the design-doc matrix from design/plan.md is implemented
- * locally and only the intervals valid for [range] are offered.
- */
 @Composable
-private fun IntervalSelector(
-    interval: Interval,
-    validIntervals: List<Interval>,
-    onIntervalChange: (Interval) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .background(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+private fun OverlayLegend(detection: Detection) {
+    val isBull = detection.direction.lowercase(Locale.US).startsWith("bull")
+    val directionColor = if (isBull) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    Column(
+        modifier = Modifier.fillMaxWidth().glassSurface().padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Interval: ${interval.value}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                text = detection.patternName.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = { expanded = true }) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_menu_down),
-                    contentDescription = "Select interval",
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = (if (isBull) "Bullish" else "Bearish") +
+                    " · " + String.format(Locale.US, "%.0f", detection.confidence) + "%",
+                fontSize = 11.sp,
+                color = directionColor,
+                fontWeight = FontWeight.Bold
+            )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            validIntervals.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.value) },
-                    onClick = {
-                        onIntervalChange(option)
-                        expanded = false
-                    }
-                )
-            }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            LegendSwatch("Anchors", directionColor, filled = true)
+            LegendSwatch("Neckline", Color(0xFFFBBF24), filled = false)
+            if (detection.target_price != null) LegendSwatch("Target", directionColor, filled = false)
+            if (detection.stop_price != null) LegendSwatch("Stop", MaterialTheme.colorScheme.error, filled = false)
         }
     }
 }
 
-/**
- * Interval validity matrix from design/plan.md. Range values come from [RangeDropdown]
- * ("1D".."10Y"); only combinations accepted by the API are returned.
- */
-private fun validIntervalsFor(range: Range): List<Interval> {
-    val allowed = when (range.value.uppercase(Locale.US)) {
-        "1D" -> setOf("5m", "15m", "30m", "1h")
-        "5D", "1M" -> setOf("5m", "15m", "30m", "1h", "1d")
-        "3M", "6M" -> setOf("1h", "1d")
-        "1Y" -> setOf("1h", "1d", "1w", "1M")
-        "2Y", "5Y", "10Y" -> setOf("1d", "1w", "1M")
-        else -> setOf("1d")
+@Composable
+private fun LegendSwatch(label: String, color: Color, filled: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(if (filled) 7.dp else 9.dp)
+                .background(color, if (filled) CircleShape else RoundedCornerShape(2.dp))
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    return AllIntervals.filter { it in allowed }.map { Interval(it) }
 }
 
 @Composable
 private fun CandleStickCard(
     candles: List<Candle>,
     selected: Detection?,
+    upColor: Int,
+    downColor: Int,
+    textColor: Int,
+    gridColor: Int,
     modifier: Modifier = Modifier
 ) {
     val labelRef = remember { object { var value = emptyList<String>() } }
@@ -404,11 +421,15 @@ private fun CandleStickCard(
                 isDoubleTapToZoomEnabled = false
                 legend.isEnabled = false
                 axisRight.isEnabled = false
-                axisLeft.textColor = AndroidColor.parseColor("#94A3B8")
-                axisLeft.setDrawGridLines(false)
+                axisLeft.textColor = textColor
+                axisLeft.setDrawAxisLine(false)
+                axisLeft.setDrawGridLines(true)
+                axisLeft.gridColor = gridColor
+                axisLeft.gridLineWidth = 0.5f
                 xAxis.position = XAxis.XAxisPosition.BOTTOM
                 xAxis.setDrawGridLines(false)
-                xAxis.textColor = AndroidColor.parseColor("#94A3B8")
+                xAxis.setDrawAxisLine(false)
+                xAxis.textColor = textColor
                 xAxis.granularity = 1f
                 xAxis.setLabelCount(4, false)
                 xAxis.valueFormatter = object : ValueFormatter() {
@@ -426,10 +447,19 @@ private fun CandleStickCard(
                 append(candles.firstOrNull()?.t).append('|')
                 append(candles.lastOrNull()?.t).append('|')
                 append(selected?.id).append('|')
-                append("v$volSum")
+                append(upColor).append('|').append(downColor).append('|')
+                append(textColor).append('|').append(gridColor).append('|')
+                append("v").append(volSum).append('|')
+                append("n").append(selected?.neckline?.price).append('|')
+                append("t").append(selected?.target_price).append('|')
+                append("s").append(selected?.stop_price)
             }
             if (sigRef.value == newSignature) return@AndroidView
             sigRef.value = newSignature
+
+            chart.axisLeft.textColor = textColor
+            chart.axisLeft.gridColor = gridColor
+            chart.xAxis.textColor = textColor
 
             val entries = ArrayList<CandleEntry>(candles.size)
             val newLabels = ArrayList<String>(candles.size)
@@ -447,7 +477,7 @@ private fun CandleStickCard(
             }
             labelRef.value = newLabels
 
-            // Volume bars (T-47): real `v` values are scaled into the lower band of the
+            // Volume bars (T-47): real v values are scaled into the lower band of the
             // price range so they share the left axis with the candles instead of
             // crowding it. Scaling is linear, so bar heights stay proportional.
             val priceMin = candles.minOf { it.l.toDouble() }
@@ -462,13 +492,13 @@ private fun CandleStickCard(
             }
             val volDataSet = BarDataSet(volumeEntries, "Volume").apply {
                 setDrawValues(false)
-                color = AndroidColor.parseColor("#64748B")
+                color = AndroidColor.argb(70, 148, 163, 184)
             }
             val priceDataSet = com.github.mikephil.charting.data.CandleDataSet(entries, "Price").apply {
                 setDrawValues(false)
-                increasingColor = AndroidColor.parseColor("#34D399")
-                decreasingColor = AndroidColor.parseColor("#F87171")
-                neutralColor = AndroidColor.parseColor("#94A3B8")
+                increasingColor = upColor
+                decreasingColor = downColor
+                neutralColor = textColor
                 shadowColorSameAsCandle = true
                 barSpace = 0.08f
                 shadowWidth = 0.7f
@@ -476,7 +506,25 @@ private fun CandleStickCard(
             val priceData = com.github.mikephil.charting.data.CandleData(priceDataSet)
             val volumeData = BarData(volDataSet).apply { barWidth = 0.3f }
 
-            // T-48: pattern overlay lines (anchor polyline, neckline, zone, target, stop)
+            // Pattern levels as labeled horizontal lines: neckline, target and stop.
+            chart.axisLeft.removeAllLimitLines()
+            selected?.neckline?.price?.let { price ->
+                chart.axisLeft.addLimitLine(
+                    levelLine("Neckline " + formatPrice(price), price.toFloat(), 0xFFFBBF24.toInt(), textColor, true)
+                )
+            }
+            selected?.target_price?.let { price ->
+                chart.axisLeft.addLimitLine(
+                    levelLine("Target " + formatPrice(price), price.toFloat(), upColor, textColor, false)
+                )
+            }
+            selected?.stop_price?.let { price ->
+                chart.axisLeft.addLimitLine(
+                    levelLine("Stop " + formatPrice(price), price.toFloat(), downColor, textColor, false)
+                )
+            }
+
+            // T-48: direction-colored anchor path with visible pivot dots.
             val overlay = selected?.let { toOverlay(it, candles) }
             val overlayData = PatternOverlayRenderer().buildOverlayData(overlay)
 
@@ -515,6 +563,23 @@ private fun CandleStickCard(
     )
 }
 
+private fun formatPrice(price: Double): String = String.format(Locale.US, "%.2f", price)
+
+private fun levelLine(
+    label: String,
+    price: Float,
+    color: Int,
+    textColor: Int,
+    dashed: Boolean
+): LimitLine = LimitLine(price, label).apply {
+    lineColor = color
+    lineWidth = 1.2f
+    textColor = textColor
+    textSize = 9f
+    labelPosition = LimitLine.LimitLabelPosition.RIGHT_TOP
+    if (dashed) enableDashedLine(10f, 6f, 0f)
+}
+
 /** Server anchor points carry a timestamp; map it back to a candle index for the overlay. */
 private fun indexForTime(t: String, candles: List<Candle>): Int {
     val exact = candles.indexOfFirst { it.t == t }
@@ -532,7 +597,7 @@ private fun toOverlay(detection: Detection, candles: List<Candle>): PatternOverl
     val neckline = detection.neckline?.let { n ->
         val idx = indexForTime(n.t, candles)
         if (idx >= 0) {
-            NecklineInfo(idx.toFloat(), n.price.toFloat(), idx.toFloat(), n.price.toFloat())
+            NecklineInfo(idx.toFloat(), n.price.toFloat(), candles.lastIndex.toFloat(), n.price.toFloat())
         } else {
             null
         }

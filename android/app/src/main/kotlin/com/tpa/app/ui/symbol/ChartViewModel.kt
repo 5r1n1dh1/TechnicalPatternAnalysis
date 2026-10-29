@@ -6,8 +6,11 @@ import com.tpa.app.network.Candle
 import com.tpa.app.network.CandleResponse
 import com.tpa.app.network.Detection
 import com.tpa.app.network.TpaApi
-import com.tpa.app.ui.chart.Range
 import com.tpa.app.ui.chart.Interval
+import com.tpa.app.ui.chart.Range
+import com.tpa.app.ui.chart.allowedIntervals
+import com.tpa.app.ui.chart.allowedRanges
+import com.tpa.app.ui.components.ProgressBus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -28,30 +31,56 @@ class ChartViewModel(
     fun setSymbol(symbol: String) {
         val cleaned = symbol.trim().uppercase()
         if (cleaned.isBlank()) return
-        _state.value = _state.value.copy(symbol = cleaned, selectedPattern = null, tradePlan = null)
+        _state.value = _state.value.copy(
+            symbol = cleaned,
+            selectedPattern = null,
+            patternFilter = null,
+            tradePlan = null,
+            tradePlanError = null
+        )
+        refreshAll()
+    }
+
+    /** Candles, trend, sector and pattern detection for the current pair. */
+    fun refreshAll() {
         fetchCandles()
-        loadPatterns()
         loadTrend()
         loadMeta()
+        loadPatterns()
+    }
+
+    /** Error/404 escape hatch: always returns to a pair the server can serve. */
+    fun resetToDefault() {
+        _state.value = _state.value.copy(
+            interval = Interval("1d"),
+            range = Range("1Y"),
+            error = null,
+            selectedPattern = null,
+            patternFilter = null,
+            tradePlan = null,
+            patternsError = null,
+            tradePlanError = null
+        )
+        refreshAll()
     }
 
     fun fetchCandles() {
         viewModelScope.launch {
-            // Preserve symbol/range/interval and previously loaded data while refreshing.
-            _state.value = _state.value.copy(isLoading = true, error = null)
-
             val current = _state.value
+            _state.value = current.copy(isLoading = true, error = null)
             if (current.symbol.isBlank()) {
                 _state.value = current.copy(isLoading = false)
                 return@launch
             }
 
             try {
-                val response = api.getCandles(
-                    symbol = current.symbol,
-                    interval = current.interval.value,
-                    range = current.range.value
-                )
+                val response = ProgressBus.track {
+                    api.getCandles(
+                        symbol = current.symbol,
+                        interval = current.interval.value,
+                        range = current.range.value
+                    )
+                }
 
                 if (response.isSuccessful) {
                     val candles = response.body()?.candles ?: emptyList()
@@ -65,14 +94,14 @@ class ChartViewModel(
                 } else {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        error = "Failed to fetch data: ${response.code()}",
+                        error = describe("Price data", response.code(), current),
                         candles = emptyList()
                     )
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = "Network error: ${e.message}",
+                    error = "Network error: ${e.message ?: "request failed"}",
                     candles = emptyList()
                 )
             }
@@ -85,86 +114,132 @@ class ChartViewModel(
             val current = _state.value
             if (current.symbol.isBlank()) return@launch
             try {
-                val trend = api.getTrend(
-                    symbol = current.symbol,
-                    interval = current.interval.value,
-                    range = current.range.value
-                )
+                val trend = ProgressBus.track {
+                    api.getTrend(
+                        symbol = current.symbol,
+                        interval = current.interval.value,
+                        range = current.range.value
+                    )
+                }
                 _state.value = _state.value.copy(trend = trend.label, trendStrength = trend.strength)
             } catch (_: Exception) {
-                // Leave any previously shown trend; header stays usable.
+                // Header stays usable without a trend label.
             }
         }
     }
 
-    /** Resolve symbol name/sector from /api/search for the chart header. */
+    /** Resolve sector from /api/search for the chart header. */
     fun loadMeta() {
         viewModelScope.launch {
             val current = _state.value
             if (current.symbol.isBlank()) return@launch
             try {
-                val results = api.search(current.symbol)
+                val results = ProgressBus.track { api.search(current.symbol) }
                 val match = results.firstOrNull { it.symbol.equals(current.symbol, ignoreCase = true) }
                     ?: results.firstOrNull()
                 if (match != null) {
                     _state.value = _state.value.copy(sector = match.sector)
                 }
             } catch (_: Exception) {
-                // Sector is optional; keep whatever we have.
+                // Sector is optional.
             }
         }
     }
 
     fun updateInterval(interval: Interval) {
-        _state.value = _state.value.copy(interval = interval)
-        fetchCandles()
-        loadPatterns()
-        loadTrend()
+        val nextRange = Range(
+            _state.value.range.value.takeIf { it in allowedRanges(interval.value) } ?: "1Y"
+        )
+        applySelection(interval = interval, range = nextRange)
     }
 
     fun updateRange(range: Range) {
-        _state.value = _state.value.copy(range = range)
-        fetchCandles()
-        loadPatterns()
-        loadTrend()
+        val nextInterval = Interval(
+            _state.value.interval.value.takeIf { it in allowedIntervals(range.value) } ?: "1d"
+        )
+        applySelection(interval = nextInterval, range = range)
     }
 
-    fun loadPatterns() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(patternsLoading = true, patternsError = null)
+    private fun applySelection(interval: Interval, range: Range) {
+        val filter = _state.value.patternFilter
+        _state.value = _state.value.copy(
+            interval = interval,
+            range = range,
+            // The old overlay belongs to the previous pair.
+            selectedPattern = null,
+            tradePlan = null,
+            tradePlanError = null,
+            patternsError = null
+        )
+        fetchCandles()
+        loadTrend()
+        loadMeta()
+        // Re-run detection for the new pair, keeping the chosen pattern filter.
+        loadPatterns(filter)
+    }
 
+    /**
+     * [filter] is a server pattern enum ("head_and_shoulders", ...) or null for
+     * all detections. Never pass a detection id here.
+     */
+    fun loadPatterns(filter: String? = null) {
+        val current = _state.value
+        _state.value = current.copy(
+            patternsLoading = true,
+            patternsError = null,
+            patternFilter = filter,
+            selectedPattern = if (filter == null) current.selectedPattern else null
+        )
+
+        viewModelScope.launch {
             try {
-                val current = _state.value
-                // Only forward a real server pattern enum; "all"/null means no filter.
-                val patternFilter = current.selectedPattern
-                    ?.takeIf { it.isNotBlank() && it != "all" && it != "ALL" }
-                val response = api.getPatterns(
-                    symbol = current.symbol,
-                    interval = current.interval.value,
-                    range = current.range.value,
-                    pattern = patternFilter
-                )
+                val response = ProgressBus.track {
+                    api.getPatterns(
+                        symbol = current.symbol,
+                        interval = current.interval.value,
+                        range = current.range.value,
+                        pattern = filter?.takeIf { it.isNotBlank() && it != "all" }
+                    )
+                }
 
                 if (response.isSuccessful) {
                     val patterns = response.body()?.detections ?: emptyList()
+                    val keep = _state.value.selectedPattern
+                        ?.takeIf { id -> patterns.any { it.id == id } }
                     _state.value = _state.value.copy(
                         patternsLoading = false,
                         patternsError = null,
-                        detections = patterns
+                        detections = patterns,
+                        selectedPattern = keep
                     )
+                    if (keep == null && _state.value.tradePlan != null) {
+                        _state.value = _state.value.copy(tradePlan = null)
+                    }
                 } else {
                     _state.value = _state.value.copy(
                         patternsLoading = false,
-                        patternsError = "Failed to fetch patterns: ${response.code()}"
+                        detections = emptyList(),
+                        selectedPattern = null,
+                        tradePlan = null,
+                        patternsError = describe("Pattern scan", response.code(), current)
                     )
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     patternsLoading = false,
-                    patternsError = "Network error: ${e.message}"
+                    patternsError = "Network error: ${e.message ?: "request failed"}"
                 )
             }
         }
+    }
+
+    fun setPatternFilter(filter: String?) {
+        _state.value = _state.value.copy(
+            selectedPattern = null,
+            tradePlan = null,
+            tradePlanError = null
+        )
+        loadPatterns(filter)
     }
 
     /** Load the trade plan for a real server pattern name (head_and_shoulders, ...). */
@@ -174,10 +249,9 @@ class ChartViewModel(
             _state.value = _state.value.copy(tradePlanLoading = true, tradePlanError = null)
 
             try {
-                val response = api.getTradePlan(
-                    symbol = _state.value.symbol,
-                    pattern = patternName
-                )
+                val response = ProgressBus.track {
+                    api.getTradePlan(symbol = _state.value.symbol, pattern = patternName)
+                }
 
                 if (response.isSuccessful) {
                     _state.value = _state.value.copy(
@@ -188,24 +262,35 @@ class ChartViewModel(
                 } else {
                     _state.value = _state.value.copy(
                         tradePlanLoading = false,
-                        tradePlanError = "Failed to fetch trade plan: ${response.code()}"
+                        tradePlanError = "Trade plan unavailable (${response.code()})."
                     )
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     tradePlanLoading = false,
-                    tradePlanError = "Network error: ${e.message}"
+                    tradePlanError = "Network error: ${e.message ?: "request failed"}"
                 )
             }
         }
     }
 
     fun selectPattern(patternId: String, patternName: String? = null) {
-        _state.value = _state.value.copy(selectedPattern = patternId)
+        _state.value = _state.value.copy(
+            selectedPattern = patternId,
+            tradePlan = null,
+            tradePlanError = null
+        )
         if (patternName != null) {
             loadTradePlan(patternName)
         } else {
             _state.value = _state.value.copy(tradePlan = null)
         }
+    }
+
+    private fun describe(label: String, code: Int, state: ChartState): String = when (code) {
+        400 -> "$label: ${state.interval.value} candles are not available for ${state.range.value}."
+        404 -> "$label: no data for ${state.interval.value} / ${state.range.value}."
+        in 500..599 -> "$label: server busy ($code). Try again."
+        else -> "$label: request failed ($code)."
     }
 }

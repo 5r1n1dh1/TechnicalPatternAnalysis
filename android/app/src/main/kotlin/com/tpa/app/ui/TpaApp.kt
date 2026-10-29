@@ -38,6 +38,7 @@ import com.tpa.app.AppContainer
 import com.tpa.app.R
 import com.tpa.app.ui.chart.ChartsTab
 import com.tpa.app.ui.components.AppBackground
+import com.tpa.app.ui.components.AppProgressBar
 import com.tpa.app.ui.home.HomeScreen
 import com.tpa.app.ui.navigation.MainTab
 import com.tpa.app.ui.navigation.NavState
@@ -102,34 +103,37 @@ fun TpaApp(container: AppContainer) {
                 )
         ) {
             AppBackground()
-            Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-                val detail = nav.detail
-                if (detail != null) {
-                    SymbolDetailScreen(
-                        symbol = detail.symbol,
-                        selectedTab = detail.tab,
-                        onTabChange = { nav = nav.selectSymbolTab(it) },
-                        onBack = { nav = nav.back() },
-                        container = container,
-                        wishlistVm = wishlistVm
-                    )
-                } else {
-                    when (nav.tab) {
-                        MainTab.Home -> HomeScreen(
-                            api = container.api,
-                            wishlistVm = wishlistVm,
-                            onOpenSymbol = openSymbol,
-                            onOpenWishlist = { nav = nav.selectTab(MainTab.Wishlist) }
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                AppProgressBar()
+                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    val detail = nav.detail
+                    if (detail != null) {
+                        SymbolDetailScreen(
+                            symbol = detail.symbol,
+                            selectedTab = detail.tab,
+                            onTabChange = { nav = nav.selectSymbolTab(it) },
+                            onBack = { nav = nav.back() },
+                            container = container,
+                            wishlistVm = wishlistVm
                         )
-                        MainTab.Wishlist -> WishlistScreen(
-                            viewModel = wishlistVm,
-                            onOpenSymbol = openSymbol
-                        )
-                        MainTab.Charts -> ChartsTab(
-                            api = container.api,
-                            initialSymbol = lastSymbol,
-                            onSymbolChange = { lastSymbol = it }
-                        )
+                    } else {
+                        when (nav.tab) {
+                            MainTab.Home -> HomeScreen(
+                                api = container.api,
+                                wishlistVm = wishlistVm,
+                                onOpenSymbol = openSymbol,
+                                onOpenWishlist = { nav = nav.selectTab(MainTab.Wishlist) }
+                            )
+                            MainTab.Wishlist -> WishlistScreen(
+                                viewModel = wishlistVm,
+                                onOpenSymbol = openSymbol
+                            )
+                            MainTab.Charts -> ChartsTab(
+                                api = container.api,
+                                initialSymbol = lastSymbol,
+                                onSymbolChange = { lastSymbol = it }
+                            )
+                        }
                     }
                 }
             }

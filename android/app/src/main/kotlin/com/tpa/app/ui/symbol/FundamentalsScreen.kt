@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.tpa.app.network.*
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.theme.*
 
 @Composable
@@ -47,7 +48,19 @@ fun FundamentalsScreen(
 @Composable
 private fun HeaderCard(h: Header) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text(h.name, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                h.name,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            GuideButton(
+                "Fundamentals guide",
+                "fundamentals", "mcap", "pe", "pb", "ev", "divyield", "eps", "bv",
+                "roa", "roce", "roic", "margins", "shareholding", "dcf", "redflags"
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(h.sector, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(8.dp))
@@ -61,7 +74,7 @@ private fun HeaderCard(h: Header) {
 @Composable
 private fun ValuationCard(v: Valuation) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Valuation", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Valuation", "pe", "pb", "ev", "divyield", "eps", "bv")
         Row(horizontalArrangement = Arrangement.SpaceEvenly) {
             Metric("PE", v.pe_ttm, "computed")
             Metric("PB", v.pb, "reported")
@@ -76,7 +89,7 @@ private fun ValuationCard(v: Valuation) {
 @Composable
 private fun ProfitabilityCard(p: Profitability) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Profitability", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Profitability", "roa", "roce", "roic", "margins")
         Row(horizontalArrangement = Arrangement.SpaceEvenly) {
             Metric("ROA", p.roa, "computed")
             Metric("ROCE", p.roce, "computed")
@@ -91,7 +104,7 @@ private fun ProfitabilityCard(p: Profitability) {
 @Composable
 private fun RatioGridCard(ratios: List<RatioItem>) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Ratio Grid", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Ratio Grid", "fundamentals")
         if (ratios.isEmpty()) {
             Text("unavailable", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
@@ -117,7 +130,7 @@ private fun RatioGridCard(ratios: List<RatioItem>) {
 @Composable
 private fun QuarterlyTableCard(results: List<QuarterlyResult>) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Quarterly Results (last 8q)", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Quarterly Results (last 8q)", "eps", "margins")
         Row(modifier = Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("Q", "Rev", "PAT", "EPS", "YoY Rev").forEach {
                 Text(it, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
@@ -139,7 +152,7 @@ private fun QuarterlyTableCard(results: List<QuarterlyResult>) {
 private fun AnnualStatementsCard(s: AnnualStatements) {
     var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Annual Statements", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Annual Statements", "fundamentals", "margins")
         Button(onClick = { expanded = !expanded }) {
             Text(if (expanded) "Collapse" else "Expand")
         }
@@ -160,7 +173,7 @@ private fun RedFlagsCard(rf: RedFlags) {
     if (rf.growth) flags.add("growth (soft)")
     if (rf.management) flags.add("management (soft)")
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Red Flags", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Red Flags", "redflags")
         if (flags.isEmpty()) {
             Text("None", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -174,7 +187,7 @@ private fun RedFlagsCard(rf: RedFlags) {
 @Composable
 private fun ShareholdingCard(s: Shareholding) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Shareholding", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Shareholding", "shareholding")
         Row(horizontalArrangement = Arrangement.SpaceEvenly) {
             MetricCol("Promoter", s.promoter?.let { "%.1f%%".format(it) } ?: "—")
             MetricCol("FII", s.fii?.let { "%.1f%%".format(it) } ?: "—")
@@ -187,7 +200,7 @@ private fun ShareholdingCard(s: Shareholding) {
 @Composable
 private fun CorporateActionsCard(ca: List<CorporateAction>) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("Corporate Actions", style = MaterialTheme.typography.titleMedium)
+        CardHeader("Corporate Actions", "fundamentals")
         if (ca.isEmpty()) {
             Text("None", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -201,7 +214,7 @@ private fun CorporateActionsCard(ca: List<CorporateAction>) {
 @Composable
 private fun DcfCard(d: DcfEstimate) {
     Column(modifier = Modifier.glassCard().padding(12.dp)) {
-        Text("DCF Estimate", style = MaterialTheme.typography.titleMedium)
+        CardHeader("DCF Estimate", "dcf")
         if (d.equityValuePerShare == null && d.upsidePercent == null) {
             Text("unavailable", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
@@ -212,6 +225,19 @@ private fun DcfCard(d: DcfEstimate) {
             MetricCol("Value/Sh", d.equityValuePerShare?.let { "%.0f".format(it) } ?: "—")
             MetricCol("Upside", d.upsidePercent?.let { "%.1f%%".format(it) } ?: "—")
         }
+    }
+}
+
+@Composable
+private fun CardHeader(title: String, vararg keys: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        GuideButton(title, *keys)
     }
 }
 

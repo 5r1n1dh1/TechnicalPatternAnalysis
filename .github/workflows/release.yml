@@ -42,8 +42,10 @@ jobs:
           TAG="${TAG:-v1.0.2}"
           APK=$(ls artifacts/*.apk 2>/dev/null | head -n1)
           if [ -n "$APK" ]; then
-            echo "Attaching $APK to release $TAG"
-            gh release upload "$TAG" "$APK" --clobber || echo "Upload skipped (artifact not found or release missing)"
+            # Stable public asset name across releases.
+            cp "$APK" TPA.apk
+            echo "Attaching TPA.apk to release $TAG (from $APK)"
+            gh release upload "$TAG" TPA.apk --clobber || echo "Upload skipped (artifact not found or release missing)"
           else
             echo "No APK artifact found; skipping upload."
           fi

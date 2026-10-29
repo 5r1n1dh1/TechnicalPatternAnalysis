@@ -1,0 +1,16 @@
+flowchart TD
+    A[Home] --> B[type query]
+    B --> C[local state updates]
+    C --> D[300 ms debounce]
+    D --> E[ProgressBus + /api/search]
+    E --> F[results / retry]
+    F --> G[open symbol]
+    G --> H[Chart tab]
+    H --> I[Change range or interval]
+    I --> J[clamp pair to server matrix]
+    J --> K[clear selection + trade plan]
+    K --> L[fetch candles + trend + patterns]
+    L --> M[global + section progress]
+    M --> N{success?}
+    N -- no --> O[error + Reset 1d/1Y]
+    N -- yes --> P[chart + overlay + labeled levels]

@@ -2,9 +2,10 @@ package com.tpa.app.ui.symbol
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tpa.app.network.TpaApi
-import com.tpa.app.network.TechnicalResponse
 import com.tpa.app.network.DecisionResponse
+import com.tpa.app.network.TechnicalResponse
+import com.tpa.app.network.TpaApi
+import com.tpa.app.ui.components.ProgressBus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -23,10 +24,12 @@ class TechnicalViewModel(private val api: TpaApi) : ViewModel() {
         viewModelScope.launch {
             _loading.value = true
             try {
-                _technical.value = api.getTechnicals(symbol).body()
-                _decision.value = api.getDecision(symbol)
-            } catch (_: Exception) { }
-            _loading.value = false
+                _technical.value = ProgressBus.track { api.getTechnicals(symbol).body() }
+                _decision.value = ProgressBus.track { api.getDecision(symbol) }
+            } catch (_: Exception) {
+            } finally {
+                _loading.value = false
+            }
         }
     }
 }

@@ -1,3 +1,40 @@
+v1.2.0 — versionCode 120, versionName 1.2.0
+
+Search
+- Typing is handled by local field state, so every keystroke renders
+  immediately even while a request is in flight.
+- 300 ms debounce, late responses for old text are ignored, and a failed
+  search now shows a Retry button.
+
+Charts: intervals and ranges
+- Only combinations the server can actually serve are offered: daily candles
+  with 5D-10Y, weekly/monthly with 1Y-10Y. The intraday choices that returned
+  404 are gone.
+- Changing one side clamps the other, so an invalid pair can never be sent.
+- Error screen has "Reset 1d · 1Y"; pattern errors have Retry and Reset.
+- Every range/interval change clears the old overlay and re-runs pattern
+  detection for the new pair, with a section progress bar and label.
+
+Progress
+- New global progress bar under the status bar for every network call.
+- Section bars for candles, pattern scan, trade plan, technicals,
+  fundamentals, decision and search, each with a short caption.
+
+Education
+- Every screen has a guide button that opens a scrollable plain-language
+  glossary of the identifiers shown there (chart, detections, trade plan,
+  technicals, decision, fundamentals, wishlist, search).
+
+Chart overlay
+- Anchor path is colored by direction with visible dots.
+- Neckline extends to the latest candle; neckline, target and stop are labeled
+  horizontal lines with prices.
+- Compose legend above the chart explains each color and line.
+- Candle, grid and axis colors follow the light/dark theme.
+
+Release
+- APK asset is uploaded as TPA.apk.
+
 v1.1.0 — versionCode 110, versionName 1.1.0
 
 Android refactor (app review fixes)

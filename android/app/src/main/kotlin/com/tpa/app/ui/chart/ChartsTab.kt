@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.tpa.app.network.TpaApi
+import com.tpa.app.ui.components.GuideButton
 import com.tpa.app.ui.symbol.ChartTab
 import com.tpa.app.ui.symbol.ChartViewModel
 
@@ -59,6 +60,7 @@ fun ChartsTab(
             Button(onClick = { loadSymbol(input) { symbol = it; onSymbolChange(it) } }) {
                 Text("Load")
             }
+            GuideButton("Charts tab", "chart", "eod", "trend", "range", "interval")
         }
 
         key(symbol) {
