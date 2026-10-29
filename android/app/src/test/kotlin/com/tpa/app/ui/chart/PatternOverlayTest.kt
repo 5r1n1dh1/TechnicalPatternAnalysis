@@ -55,7 +55,7 @@ class PatternOverlayTest {
         assertEquals("bear", overlay.direction)
         assertEquals(85.0, overlay.confidence, 0.01)
         assertEquals(3.5, overlay.riskReward, 0.01)
-        assertEquals(130.0, overlay.targetPrice, 0.01)
-        assertEquals(90.0, overlay.stopPrice, 0.01)
+        assertEquals(130.0, overlay.targetPrice!!, 0.01)
+        assertEquals(90.0, overlay.stopPrice!!, 0.01)
     }
 }
