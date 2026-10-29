@@ -35,6 +35,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.ScatterData
 import com.github.mikephil.charting.data.ScatterDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.github.mikephil.charting.utils.Utils
 import com.tpa.app.network.Candle
 import com.tpa.app.network.Detection
 import com.tpa.app.ui.chart.AnchorPoint
@@ -574,8 +575,10 @@ private fun levelLine(
 ): LimitLine = LimitLine(price, label).apply {
     lineColor = color
     lineWidth = 1.2f
-    textColor = textColor
-    textSize = 9f
+    textStyle.apply {
+        this.color = textColor
+        textSize = Utils.convertDpToPixel(9f)
+    }
     labelPosition = LimitLine.LimitLabelPosition.RIGHT_TOP
     if (dashed) enableDashedLine(10f, 6f, 0f)
 }
