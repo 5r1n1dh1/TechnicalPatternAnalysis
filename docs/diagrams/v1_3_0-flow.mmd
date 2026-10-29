@@ -1,0 +1,15 @@
+flowchart TD
+    A[Change range or interval] --> B[clamp to matrix]
+    B --> C[candles + trend + patterns]
+    C --> D{intraday pair?}
+    D -- yes --> E[core/intraday fetch_intraday]
+    E --> F{Yahoo v8 ok?}
+    F -- yes --> G[normalise + 60s cache]
+    F -- no --> H{Groww ok?}
+    H -- yes --> I[de-accumulate volume + cache]
+    H -- no --> J[404 with Reset 1d/1Y]
+    G --> K[response source=yahoo]
+    I --> K
+    K --> L[chart + anchors by idx]
+    L --> M[select detection]
+    M --> N[PivotSummaryCard: counts + rows]

@@ -38,8 +38,8 @@ object Glossary {
         "eod" to InfoTopic("EOD price", "End-of-day close from the latest candle returned by the server. Daily data is official end-of-day data, not a live tick."),
         "trend" to InfoTopic("Trend", "Server label (uptrend / downtrend / sideways) plus strength 0-100 from EMA and ADX rules. Higher strength means the direction is more consistent."),
         "sector" to InfoTopic("Sector", "Industry group for the symbol, resolved from the NSE symbol master."),
-        "range" to InfoTopic("Range", "How much history to show: 5 days up to 10 years. Only combinations the server can serve are offered."),
-        "interval" to InfoTopic("Interval", "Candle size: 1d daily, 1w weekly, 1M monthly. Intraday data is not available from the EOD source, so 5m/30m/1h are not offered."),
+        "range" to InfoTopic("Range", "How much history to show: 1 day up to 10 years. Intraday ranges run from 1D to 1M, and only pairs the server can serve are offered."),
+        "interval" to InfoTopic("Interval", "Candle size: 5m, 15m, 30m and 1h intraday, then 1d, 1w and 1M. Intraday candles use delayed Yahoo/Groww data; daily candles use the end-of-day dataset."),
         "detection" to InfoTopic("Pattern detections", "Shapes found by the server's pattern engine on the current interval and range. Changing either value re-runs detection."),
         "confidence" to InfoTopic("Confidence", "Pattern engine score 0-100. It reflects how closely the pivots match the textbook shape; it is not a probability of profit."),
         "rr" to InfoTopic("Risk : reward", "Distance to target divided by distance to stop. A value of 3.0 means the plan aims to make three rupees for every rupee risked."),
@@ -76,7 +76,8 @@ object Glossary {
         "redflags" to InfoTopic("Red flags", "Hard flags break a rule (for example leverage); soft flags are warnings. They reduce decision confidence."),
         "fundamentals" to InfoTopic("Fundamentals", "Reported and computed financials. Values tagged reported come from filings; computed values are derived by the server."),
         "technicals" to InfoTopic("Technicals", "Indicator snapshot for the latest bar, computed from the same candle series as the chart."),
-        "overlay" to InfoTopic("Pattern overlay", "Anchor dots trace the pattern. The neckline, target and stop are labeled horizontal levels; tap another detection to compare.")
+        "overlay" to InfoTopic("Pattern overlay", "Anchor dots trace the pattern. The neckline, target and stop are labeled horizontal levels; tap another detection to compare."),
+        "pivots" to InfoTopic("Pivot points", "Swing highs (amber) and lows (blue) accepted by the pattern engine. Tap a detection to see its total, high/low counts, and each pivot's time and price. Daily candles are end-of-day; intraday candles are delayed.")
     )
 
     fun of(vararg keys: String): List<InfoTopic> =

@@ -97,13 +97,27 @@ data class Detection(
 }
 
 @Serializable
-data class Anchor(val t: String = "", val price: Double = 0.0)
+data class Anchor(
+    val t: String = "",
+    // Bar index on the server's candle list; the safest key for intraday points.
+    val idx: Int? = null,
+    val price: Double = 0.0
+)
 
 @Serializable
-data class Neckline(val t: String = "", val price: Double = 0.0)
+data class Neckline(
+    val t: String = "",
+    val idx: Int? = null,
+    val price: Double = 0.0
+)
 
 @Serializable
-data class Pivot(val t: String = "", val price: Double = 0.0, val kind: String = "HIGH")
+data class Pivot(
+    val idx: Int = -1,
+    val t: String = "",
+    val price: Double = 0.0,
+    val kind: String = "HIGH"
+)
 
 // ---------------------------------------------------------------------------
 // /api/technicals -> {"rsi14","macdHistNorm","ema20","ema50","adx","atr14pct",

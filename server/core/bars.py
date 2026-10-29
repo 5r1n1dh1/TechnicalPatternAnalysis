@@ -17,6 +17,18 @@ def load_bars(symbol: str, interval: str = "1d", range_str: str = "1Y"):
                 return baked
         except Exception:
             pass
+    else:
+        # Intraday: keyless providers (Yahoo v8 then Groww) with a 60 s cache.
+        try:
+            try:
+                from core.intraday import fetch_intraday
+            except Exception:
+                from api.core.intraday import fetch_intraday  # type: ignore
+            frame, _source = fetch_intraday(symbol, interval, range_str)
+            if frame is not None and len(frame) > 0:
+                return frame
+        except Exception:
+            pass
 
     import pandas as pd
     try:

@@ -7,8 +7,22 @@ import org.junit.Test
 class ChartFiltersTest {
 
     @Test
-    fun dailyOffersEveryRange() {
-        assertEquals(ChartRanges, allowedRanges("1d"))
+    fun intradayIntervalsOnlyOfferShortRanges() {
+        listOf("5m", "15m", "30m").forEach { interval ->
+            assertEquals(listOf("1D", "5D", "1M"), allowedRanges(interval))
+        }
+        assertEquals(
+            listOf("1D", "5D", "1M", "3M", "6M", "1Y"),
+            allowedRanges("1h")
+        )
+    }
+
+    @Test
+    fun dailyStartsAtFiveDays() {
+        assertEquals(
+            listOf("5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y"),
+            allowedRanges("1d")
+        )
     }
 
     @Test
@@ -19,24 +33,41 @@ class ChartFiltersTest {
     }
 
     @Test
-    fun shortRangesOnlyAllowDaily() {
-        listOf("5D", "1M", "3M", "6M").forEach { range ->
-            assertEquals(listOf("1d"), allowedIntervals(range))
+    fun oneDayRangeOnlyAllowsIntraday() {
+        assertEquals(listOf("5m", "15m", "30m", "1h"), allowedIntervals("1D"))
+    }
+
+    @Test
+    fun shortRangesAllowDailyOnlyFromFiveDays() {
+        listOf("5D", "1M").forEach { range ->
+            assertEquals(listOf("5m", "15m", "30m", "1h", "1d"), allowedIntervals(range))
+        }
+        listOf("3M", "6M").forEach { range ->
+            assertEquals(listOf("1h", "1d"), allowedIntervals(range))
         }
     }
 
     @Test
-    fun longRangesAllowEveryEodInterval() {
-        listOf("1Y", "2Y", "5Y", "10Y").forEach { range ->
+    fun longRangesNeverOfferMinutes() {
+        listOf("1Y").forEach { range ->
+            assertEquals(listOf("1h", "1d", "1w", "1M"), allowedIntervals(range))
+        }
+        listOf("2Y", "5Y", "10Y").forEach { range ->
             assertEquals(listOf("1d", "1w", "1M"), allowedIntervals(range))
         }
     }
 
     @Test
-    fun clampingAlwaysProducesASupportedPair() {
-        assertEquals("1Y", clampRangeFor("1w", "5D"))
-        assertEquals("1d", clampIntervalFor("5D", "1w"))
+    fun clampingFallsBackToTheFirstSupportedValue() {
+        // Selecting 1D while on daily must switch to 5m, not keep an invalid 1d pair.
+        assertEquals("5m", clampIntervalFor("1D", "1d"))
+        assertEquals("5D", clampRangeFor("1d", "1D"))
+        assertEquals("1D", clampRangeFor("5m", "1Y"))
+        assertEquals("1h", clampIntervalFor("1Y", "5m"))
+    }
 
+    @Test
+    fun clampingAlwaysProducesASupportedPair() {
         ChartRanges.forEach { range ->
             ChartIntervals.forEach { interval ->
                 val clampedRange = clampRangeFor(interval, range)

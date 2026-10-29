@@ -1,3 +1,34 @@
+v1.3.0 — versionCode 130, versionName 1.3.0
+
+Intraday charts
+- 5m, 15m, 30m and 1h candles are back. They come from Yahoo's chart
+  endpoint first, then Groww's delayed charting endpoint; both need no
+  key or cookie, so they work from Vercel where yfinance fails.
+- Groww reports cumulative volume per session, so the server converts it
+  to per-bar volume before returning candles.
+- The interval/range picker mirrors the server matrix exactly: minutes
+  with 1D-1M, hourly with 1D-1Y, daily with 5D-10Y, weekly/monthly with
+  1Y-10Y. Invalid pairs are clamped to the first supported value; choosing
+  1D while on daily switches to 5m.
+- Intraday candle data is cached for 60 seconds; daily data keeps the
+  12-hour cache. Intraday pairs skip the on-disk candle cache.
+- X-axis labels show HH:mm for 1D, dd MMM HH:mm for longer intraday
+  ranges, and dd MMM for daily and coarser candles.
+
+Pivot points
+- Detection payloads now include the bar index for every anchor and
+  neckline, and a timestamp for every pivot. The chart uses the index, so
+  intraday markers land on the right candle regardless of timezone.
+- High and low pivots are separate scatter series: amber for highs, blue
+  for lows, with matching legend entries.
+- New pivot summary card under the chart for the selected detection: total
+  count, high/low counts, and a row per pivot with date/time, kind and
+  price. Its guide explains how pivots feed pattern detection.
+- Guide text for interval, range and pivots updated.
+
+Release
+- APK asset is uploaded as TPA.apk.
+
 v1.2.0 — versionCode 120, versionName 1.2.0
 
 Search

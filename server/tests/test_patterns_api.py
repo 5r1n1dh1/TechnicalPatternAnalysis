@@ -48,9 +48,12 @@ def test_positive_fixtures_api(fname, monkeypatch):
     for a in det["anchors"]:
         assert "t" in a and isinstance(a["t"], str)
         assert a["t"].endswith("Z")
+        assert isinstance(a["idx"], int)
     pivots = det.get("pivots", [])
     for p in pivots:
         assert p["kind"] in {"HIGH", "LOW"}
+        assert isinstance(p["idx"], int)
+        assert isinstance(p["t"], str)
 
 
 def test_negative_fixtures_api(monkeypatch):

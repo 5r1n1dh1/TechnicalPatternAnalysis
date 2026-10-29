@@ -343,13 +343,39 @@ def build_detection_payload(df: pd.DataFrame, detections: List[Detection]) -> Li
                 return ts.strftime("%Y-%m-%dT%H:%M:%SZ") if hasattr(ts, "strftime") else str(val)
             except Exception:
                 return ""
+        def anchor_idx(node: Dict[str, Any]) -> int:
+            raw = node.get("idx", node.get("t", 0))
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                return 0
+
         entry = {
             "pattern": d.pattern,
             "direction": d.direction,
             "confidence": d.confidence,
-            "anchors": [{"t": to_iso(int(str(a.get("t")))), "price": float(a.get("price", 0))} for a in d.anchors],
-            "neckline": {"t": to_iso(int(str(d.neckline.get("t")))), "price": float(d.neckline.get("price", 0))} if d.neckline else None,
-            "pivot_idx": [{"idx": int(i), "price": float(p), "kind": "HIGH" if h else "LOW"} for i, p, h in d.pivot_idx],
+            "anchors": [
+                {
+                    "t": to_iso(anchor_idx(a)),
+                    "idx": anchor_idx(a),
+                    "price": float(a.get("price", 0)),
+                }
+                for a in d.anchors
+            ],
+            "neckline": {
+                "t": to_iso(anchor_idx(d.neckline)),
+                "idx": anchor_idx(d.neckline),
+                "price": float(d.neckline.get("price", 0)),
+            } if d.neckline else None,
+            "pivot_idx": [
+                {
+                    "idx": int(i),
+                    "t": to_iso(int(i)),
+                    "price": float(p),
+                    "kind": "HIGH" if h else "LOW",
+                }
+                for i, p, h in d.pivot_idx
+            ],
             "target_price": d.target_price,
             "stop_price": d.stop_price,
             "rr": d.rr,

@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant U as User
+    participant VM as ChartViewModel
+    participant API as FastAPI
+    participant I as core/intraday
+    participant Y as Yahoo v8
+    participant G as Groww
+
+    U->>VM: select 5m / 5D
+    VM->>API: candles, trend, patterns (parallel)
+    API->>I: fetch_intraday(RELIANCE, 5m, 5D)
+    I->>I: cache hit?
+    alt cache miss
+        I->>Y: GET /v8/finance/chart/RELIANCE.NS?interval=5m&range=5d
+        alt Yahoo fails
+            I->>G: GET charting_service 5m window
+            G-->>I: cumulative-volume candles
+            I->>I: diff volume per day
+        end
+        I->>I: store 60s cache
+    end
+    I-->>API: DataFrame + source
+    API-->>VM: candles / trend / detections (pivots with idx+t)
+    VM-->>U: intraday candles + pivot markers + pivot card

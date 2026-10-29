@@ -35,6 +35,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.ScatterData
 import com.github.mikephil.charting.data.ScatterDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.github.mikephil.charting.interfaces.datasets.IScatterDataSet
 import com.github.mikephil.charting.utils.Utils
 import com.tpa.app.network.Candle
 import com.tpa.app.network.Detection
@@ -43,6 +44,7 @@ import com.tpa.app.ui.chart.ChartFilters
 import com.tpa.app.ui.chart.DetectionChip
 import com.tpa.app.ui.chart.NecklineInfo
 import com.tpa.app.ui.chart.PivotMarker
+import com.tpa.app.ui.chart.PivotSummaryCard
 import com.tpa.app.ui.chart.PatternOverlay
 import com.tpa.app.ui.chart.PatternOverlayRenderer
 import com.tpa.app.ui.components.GuideButton
@@ -55,6 +57,8 @@ import java.util.Locale
 private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
 private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 private val labelFormat = SimpleDateFormat("dd MMM", Locale.US)
+private val clockLabelFormat = SimpleDateFormat("HH:mm", Locale.US)
+private val intradayLabelFormat = SimpleDateFormat("dd MMM HH:mm", Locale.US)
 
 /** Server pattern enums for the optional detection filter; null means all. */
 private val PatternFilters = listOf<Pair<String?, String>>(
@@ -174,6 +178,8 @@ private fun ChartContent(
                 CandleStickCard(
                     candles = state.candles,
                     selected = selectedDetection,
+                    interval = state.interval.value,
+                    range = state.range.value,
                     upColor = MaterialTheme.colorScheme.primary.toArgb(),
                     downColor = MaterialTheme.colorScheme.error.toArgb(),
                     textColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
@@ -190,6 +196,15 @@ private fun ChartContent(
             )
         }
 
+        selectedDetection?.let { detection ->
+            PivotSummaryCard(
+                detection = detection,
+                candles = state.candles,
+                interval = state.interval.value,
+                range = state.range.value
+            )
+        }
+
         // Detections.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -203,7 +218,7 @@ private fun ChartContent(
                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
             }
             Spacer(Modifier.weight(1f))
-            GuideButton("Pattern detections", "detection", "confidence", "rr", "overlay")
+            GuideButton("Pattern detections", "detection", "confidence", "rr", "overlay", "pivots")
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(PatternFilters) { (value, label) ->
@@ -385,6 +400,13 @@ private fun OverlayLegend(detection: Detection) {
                 )
             }
         }
+        if (detection.pivots.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                LegendSwatch("High pivot", PivotMarker.highColor, filled = true)
+                LegendSwatch("Low pivot", PivotMarker.lowColor, filled = true)
+            }
+        }
     }
 }
 
@@ -405,6 +427,8 @@ private fun LegendSwatch(label: String, color: Color, filled: Boolean) {
 private fun CandleStickCard(
     candles: List<Candle>,
     selected: Detection?,
+    interval: String,
+    range: String,
     upColor: Int,
     downColor: Int,
     textColor: Int,
@@ -454,6 +478,8 @@ private fun CandleStickCard(
                 append(candles.firstOrNull()?.t).append('|')
                 append(candles.lastOrNull()?.t).append('|')
                 append(selected?.id).append('|')
+                append(interval).append('|').append(range).append('|')
+                append(selected?.pivots?.joinToString { "${it.idx}:${it.kind}:${it.price}" }).append('|')
                 append(upColor).append('|').append(downColor).append('|')
                 append(textColor).append('|').append(gridColor).append('|')
                 append("v").append(volSum).append('|')
@@ -480,7 +506,7 @@ private fun CandleStickCard(
                         candle.c.toFloat()
                     )
                 )
-                newLabels.add(formatLabel(candle.t))
+                newLabels.add(formatLabel(candle.t, interval, range))
             }
             labelRef.value = newLabels
 
@@ -539,24 +565,34 @@ private fun CandleStickCard(
             val overlay = selected?.let { toOverlay(it, candles) }
             val overlayData = PatternOverlayRenderer().buildOverlayData(overlay)
 
-            // T-49: pivot markers (HIGH/LOW) rendered as scatter dots on selected detection
+            // T-49: pivot markers split into HIGH (amber) and LOW (blue) dots.
             val scatterData = selected?.pivots?.let { pivots ->
-                val pivotEntries = pivots.mapNotNull { p ->
-                    val idx = indexForTime(p.t, candles)
-                    if (idx >= 0) Entry(idx.toFloat(), p.price.toFloat()) else null
-                }
-                if (pivotEntries.isEmpty()) {
-                    null
-                } else {
-                    val sds = ScatterDataSet(pivotEntries, "Pivots").apply {
+                fun entries(kind: String): List<Entry> = pivots
+                    .filter { it.kind.equals(kind, ignoreCase = true) }
+                    .mapNotNull { p ->
+                        val idx = pointIndex(p.idx.takeIf { it >= 0 }, p.t, candles)
+                        if (idx >= 0) Entry(idx.toFloat(), p.price.toFloat()) else null
+                    }
+
+                fun dataSet(entries: List<Entry>, label: String, color: Int): ScatterDataSet =
+                    ScatterDataSet(entries, label).apply {
                         setDrawValues(false)
                         setHighlightEnabled(false)
-                        color = PivotMarker.highColor.toArgb()
+                        this.color = color
                         setScatterShapeHoleColor(PivotMarker.glass.toArgb())
                         setScatterShape(ScatterChart.ScatterShape.CIRCLE)
                         setScatterShapeSize(7f)
                     }
-                    ScatterData(sds)
+
+                val high = entries("HIGH")
+                val low = entries("LOW")
+                if (high.isEmpty() && low.isEmpty()) {
+                    null
+                } else {
+                    val sets = ArrayList<IScatterDataSet>(2)
+                    if (high.isNotEmpty()) sets.add(dataSet(high, "High pivots", PivotMarker.highColor.toArgb()))
+                    if (low.isNotEmpty()) sets.add(dataSet(low, "Low pivots", PivotMarker.lowColor.toArgb()))
+                    ScatterData(sets)
                 }
             }
 
@@ -592,6 +628,12 @@ private fun levelLine(
     if (dashed) enableDashedLine(10f, 6f, 0f)
 }
 
+/** Prefer the server bar index; fall back to timestamp matching for older payloads. */
+private fun pointIndex(idx: Int?, t: String, candles: List<Candle>): Int {
+    if (idx != null && idx in candles.indices) return idx
+    return indexForTime(t, candles)
+}
+
 /** Server anchor points carry a timestamp; map it back to a candle index for the overlay. */
 private fun indexForTime(t: String, candles: List<Candle>): Int {
     val exact = candles.indexOfFirst { it.t == t }
@@ -603,11 +645,11 @@ private fun indexForTime(t: String, candles: List<Candle>): Int {
 
 private fun toOverlay(detection: Detection, candles: List<Candle>): PatternOverlay {
     val anchors = detection.anchors.mapNotNull { anchor ->
-        val idx = indexForTime(anchor.t, candles)
+        val idx = pointIndex(anchor.idx, anchor.t, candles)
         if (idx >= 0) AnchorPoint(idx, anchor.price) else null
     }
     val neckline = detection.neckline?.let { n ->
-        val idx = indexForTime(n.t, candles)
+        val idx = pointIndex(n.idx, n.t, candles)
         if (idx >= 0) {
             NecklineInfo(idx.toFloat(), n.price.toFloat(), candles.lastIndex.toFloat(), n.price.toFloat())
         } else {
@@ -627,7 +669,7 @@ private fun toOverlay(detection: Detection, candles: List<Candle>): PatternOverl
     )
 }
 
-private fun formatLabel(t: String): String {
+private fun formatLabel(t: String, interval: String, range: String): String {
     val parsed: Date? = try {
         isoFormat.parse(t)
     } catch (e: Exception) {
@@ -637,5 +679,11 @@ private fun formatLabel(t: String): String {
     } catch (e: Exception) {
         null
     }
-    return parsed?.let { labelFormat.format(it) } ?: t
+    val formatter = when {
+        range == "1D" -> clockLabelFormat
+        interval == "5m" || interval == "15m" || interval == "30m" || interval == "1h" ->
+            intradayLabelFormat
+        else -> labelFormat
+    }
+    return parsed?.let { formatter.format(it) } ?: t
 }

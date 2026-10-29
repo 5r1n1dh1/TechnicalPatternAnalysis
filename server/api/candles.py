@@ -25,9 +25,16 @@ RANGES = RANGES if 'RANGES' in locals() else []
 
 router = APIRouter()
 
-# In-memory cache with TTL 12h
+# In-memory cache. Daily bars change once per session; intraday bars need a
+# short TTL so the chart stays current.
 _cache = {}
 _CACHE_TTL = 12 * 60 * 60  # 12 hours in seconds
+_INTRADAY_TTL = 60  # seconds
+_INTRADAY_INTERVALS = ("5m", "15m", "30m", "1h")
+
+
+def _ttl_for(interval: str) -> int:
+    return _INTRADAY_TTL if interval in _INTRADAY_INTERVALS else _CACHE_TTL
 _CACHED_CANDLES_DIR = Path(__file__).resolve().parents[1] / "data" / "cached_candles"
 try:
     _CACHED_CANDLES_DIR.mkdir(parents=True, exist_ok=True)
@@ -110,11 +117,11 @@ def get_candles(
     cache_key = f"{symbol}_{interval_val}_{range_val}"
     if cache_key in _cache:
         cached_data, cached_time = _cache[cache_key]
-        if (datetime.now().timestamp() - cached_time) < _CACHE_TTL:
+        if (datetime.now().timestamp() - cached_time) < _ttl_for(interval_val):
             return cached_data
-    # Also check file-based cache as tests expect
+    # File cache only for daily bars: intraday files would go stale immediately.
     cache_file = _CACHED_CANDLES_DIR / f"{symbol}_{interval_val}_{range_val}.parquet"
-    if cache_file.exists():
+    if interval_val not in _INTRADAY_INTERVALS and cache_file.exists():
         try:
             import pandas as pd
             try:
@@ -141,7 +148,21 @@ def get_candles(
     except Exception:
         pass  # Guarded fallback
 
-    # Live Yahoo fallback
+    # Intraday providers: Yahoo chart v8 first, Groww second (yfinance dropped
+    # its cookie/crumb handshake on Vercel and 404s).
+    if interval_val in _INTRADAY_INTERVALS:
+        try:
+            df, live_source = _fetch_from_intraday(symbol, interval_val, range_val)
+            if df is not None and not df.empty:
+                response = _process_candles(
+                    df, symbol, interval_val, range_val, source=live_source or "yahoo"
+                )
+                _cache[cache_key] = (response, datetime.now().timestamp())
+                return response
+        except Exception:
+            pass  # Guarded fallback
+
+    # Live yfinance fallback (daily gaps; intraday last resort)
     try:
         df = _fetch_from_yahoo(symbol, interval_val, range_val)
         if df is not None and not df.empty:
@@ -199,6 +220,18 @@ def _process_candles(df, symbol: str, interval: str, range_val: str, source: str
         source=source,
         candles=candles,
     )
+
+
+def _fetch_from_intraday(symbol: str, interval: str, range_val: str):
+    """Return ``(DataFrame, source)`` from the keyless intraday providers."""
+    try:
+        from core.intraday import fetch_intraday
+    except Exception:
+        try:
+            from api.core.intraday import fetch_intraday  # type: ignore
+        except Exception:
+            return None, None
+    return fetch_intraday(symbol, interval, range_val)
 
 
 def _fetch_from_baked(symbol: str, interval: str, range_val: str):

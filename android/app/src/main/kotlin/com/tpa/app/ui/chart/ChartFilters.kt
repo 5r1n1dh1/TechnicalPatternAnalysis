@@ -28,28 +28,42 @@ import androidx.compose.ui.unit.sp
 import com.tpa.app.R
 import com.tpa.app.ui.components.GuideButton
 
-/** Ranges the EOD dataset can serve. 1D is intraday-only and therefore absent. */
-val ChartRanges = listOf("5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y")
+/** Every range the server declares, intraday through 10 years. */
+val ChartRanges = listOf("1D", "5D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y")
 
-/** Intervals backed by the baked EOD dataset. */
-val ChartIntervals = listOf("1d", "1w", "1M")
+/** Every interval the server declares. */
+val ChartIntervals = listOf("5m", "15m", "30m", "1h", "1d", "1w", "1M")
 
-fun allowedIntervals(range: String): List<String> = when (range) {
-    "5D", "1M", "3M", "6M" -> listOf("1d")
-    "1Y", "2Y", "5Y", "10Y" -> listOf("1d", "1w", "1M")
-    else -> listOf("1d")
-}
+/**
+ * Mirrors the server validity matrix (`server/core/constants.py`). Keep the two
+ * in sync: an unsupported pair is rejected with 400 invalidCombo.
+ */
+private val RangeIntervals: Map<String, List<String>> = mapOf(
+    "1D" to listOf("5m", "15m", "30m", "1h"),
+    "5D" to listOf("5m", "15m", "30m", "1h", "1d"),
+    "1M" to listOf("5m", "15m", "30m", "1h", "1d"),
+    "3M" to listOf("1h", "1d"),
+    "6M" to listOf("1h", "1d"),
+    "1Y" to listOf("1h", "1d", "1w", "1M"),
+    "2Y" to listOf("1d", "1w", "1M"),
+    "5Y" to listOf("1d", "1w", "1M"),
+    "10Y" to listOf("1d", "1w", "1M")
+)
 
-fun allowedRanges(interval: String): List<String> = when (interval) {
-    "1w", "1M" -> listOf("1Y", "2Y", "5Y", "10Y")
-    else -> ChartRanges
-}
+fun allowedIntervals(range: String): List<String> =
+    RangeIntervals[range] ?: listOf("1d")
 
+fun allowedRanges(interval: String): List<String> =
+    ChartRanges.filter { range -> interval in allowedIntervals(range) }
+
+/** Fall back to the first supported value, so an invalid pair is never kept. */
 fun clampRangeFor(interval: String, range: String): String =
-    if (range in allowedRanges(interval)) range else "1Y"
+    if (range in allowedRanges(interval)) range
+    else allowedRanges(interval).firstOrNull() ?: "1Y"
 
 fun clampIntervalFor(range: String, interval: String): String =
-    if (interval in allowedIntervals(range)) interval else "1d"
+    if (interval in allowedIntervals(range)) interval
+    else allowedIntervals(range).firstOrNull() ?: "1d"
 
 @Composable
 fun ChartFilters(
@@ -77,7 +91,7 @@ fun ChartFilters(
             modifier = Modifier.weight(1f)
         ) { onIntervalChange(Interval(it)) }
 
-        GuideButton("Chart filters", "range", "interval", "detection")
+        GuideButton("Chart filters", "range", "interval", "detection", "pivots")
     }
 }
 

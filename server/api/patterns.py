@@ -38,17 +38,20 @@ class Pattern(str, Enum):
 
 class Pivot(BaseModel):
     idx: int
+    t: str = ""
     price: float
     kind: str
 
 
 class Anchor(BaseModel):
     t: str
+    idx: int = 0
     price: float
 
 
 class Neckline(BaseModel):
     t: Optional[str]
+    idx: Optional[int] = None
     price: Optional[float]
 
 
@@ -118,13 +121,20 @@ def get_patterns(
 
     results = []
     for entry in payload:
-        pivots = [Pivot(idx=p["idx"], price=p["price"], kind=p["kind"]) for p in entry.get("pivot_idx", [])]
+        pivots = [
+            Pivot(idx=p["idx"], t=p.get("t", ""), price=p["price"], kind=p["kind"])
+            for p in entry.get("pivot_idx", [])
+        ]
         results.append(Detection(
             pattern=entry["pattern"],
             direction=entry["direction"],
             confidence=int(entry.get("confidence", 0)),
-            anchors=[Anchor(t=a["t"], price=a["price"]) for a in entry["anchors"]],
-            neckline=Neckline(t=entry["neckline"]["t"], price=entry["neckline"]["price"]) if entry.get("neckline") else None,
+            anchors=[Anchor(t=a["t"], idx=a.get("idx", 0), price=a["price"]) for a in entry["anchors"]],
+            neckline=Neckline(
+                t=entry["neckline"]["t"],
+                idx=entry["neckline"].get("idx"),
+                price=entry["neckline"]["price"],
+            ) if entry.get("neckline") else None,
             pivots=pivots,
             target_price=entry.get("target_price"),
             stop_price=entry.get("stop_price"),

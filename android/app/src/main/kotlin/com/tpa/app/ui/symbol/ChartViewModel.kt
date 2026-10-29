@@ -8,8 +8,8 @@ import com.tpa.app.network.Detection
 import com.tpa.app.network.TpaApi
 import com.tpa.app.ui.chart.Interval
 import com.tpa.app.ui.chart.Range
-import com.tpa.app.ui.chart.allowedIntervals
-import com.tpa.app.ui.chart.allowedRanges
+import com.tpa.app.ui.chart.clampIntervalFor
+import com.tpa.app.ui.chart.clampRangeFor
 import com.tpa.app.ui.components.ProgressBus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -147,16 +147,12 @@ class ChartViewModel(
     }
 
     fun updateInterval(interval: Interval) {
-        val nextRange = Range(
-            _state.value.range.value.takeIf { it in allowedRanges(interval.value) } ?: "1Y"
-        )
+        val nextRange = Range(clampRangeFor(interval.value, _state.value.range.value))
         applySelection(interval = interval, range = nextRange)
     }
 
     fun updateRange(range: Range) {
-        val nextInterval = Interval(
-            _state.value.interval.value.takeIf { it in allowedIntervals(range.value) } ?: "1d"
-        )
+        val nextInterval = Interval(clampIntervalFor(range.value, _state.value.interval.value))
         applySelection(interval = nextInterval, range = range)
     }
 
