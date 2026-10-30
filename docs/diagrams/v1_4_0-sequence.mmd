@@ -1,0 +1,30 @@
+sequenceDiagram
+    actor U as User
+    participant UI as TpaApp
+    participant LVM as LessonViewModel
+    participant AR as AcademyRepository
+    participant LR as LearnRepository
+    participant DB as learn.db
+    participant MV as Markwon
+
+    U->>UI: Tap lesson
+    UI->>UI: nav.openLesson(id)
+    UI->>LVM: create with lessonId
+    LVM->>AR: content()
+    AR->>AR: read assets/academy/manifest.json
+    AR-->>LVM: AcademyContent
+    LVM->>AR: markdown(lesson)
+    AR-->>LVM: local Markdown
+    LVM->>LR: touch(lessonId)
+    LR->>DB: upsert lesson_progress
+    LVM-->>UI: LessonUiState
+    UI->>MV: render Markdown
+    U->>UI: Mark complete
+    UI->>LVM: markComplete()
+    LVM->>LR: setCompleted(id, true)
+    LR->>DB: upsert completedAt
+    DB-->>LR: Flow emits
+    LR-->>LVM: progress
+    LVM-->>UI: completed = true
+    U->>UI: Take the Part quiz
+    UI->>UI: nav.openQuiz(partId)

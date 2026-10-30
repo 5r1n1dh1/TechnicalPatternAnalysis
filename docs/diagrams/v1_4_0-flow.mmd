@@ -1,0 +1,18 @@
+flowchart TD
+    A[Launch app] --> B[Home]
+    B --> C[Learn tab]
+    C --> D{Section}
+    D -->|Library| E[Search / parts]
+    E --> F[Lesson reader]
+    D -->|Paths| G[4 learning paths]
+    G --> F
+    D -->|Toolkit| H[Calculators / checklists / glossary]
+    D -->|Resources| I[Official links]
+    F --> J[Mark complete]
+    J --> K[Part quiz]
+    K --> L[Score + explanations]
+    F --> M[Bookmark]
+    B --> N[Symbol detail]
+    N --> O[Info dialog]
+    O -->|Read the full lesson| F
+    I --> P[External browser]
